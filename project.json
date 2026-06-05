@@ -1,0 +1,450 @@
+{
+  "project": {
+    "name": "InvoiceFlow",
+    "description": "A GoHighLevel-inspired full-stack invoicing system with customer management, Stripe payments, saved cards, off-session charges, PDF generation, and SMTP email delivery.",
+    "version": "1.0.0",
+    "author": "Elevate Talent & Marketing",
+    "language": "JavaScript",
+    "framework": "Next.js 14+ (App Router)"
+  },
+
+  "brand": {
+    "colors": {
+      "primary": "#2A2A6C",
+      "secondary": "#FE1D66",
+      "background": "#F5F6FA",
+      "surface": "#FFFFFF",
+      "text": "#1A1A2E",
+      "muted": "#6B7280",
+      "border": "#E5E7EB",
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444"
+    },
+    "font": "Inter"
+  },
+
+  "techStack": {
+    "frontend": "Next.js 14+ (App Router, JavaScript)",
+    "backend": "Firebase Cloud Functions (Node.js)",
+    "database": "Firestore",
+    "auth": "Firebase Auth (email/password)",
+    "payments": "Stripe (PaymentIntents, SetupIntents, Customer API)",
+    "email": "Nodemailer via SMTP",
+    "pdfGeneration": "Puppeteer (server-side Cloud Function)",
+    "fileStorage": "Firebase Storage",
+    "hosting": "Firebase Hosting or Vercel",
+    "styling": "Tailwind CSS"
+  },
+
+  "currencies": ["USD", "CAD"],
+
+  "invoiceNumbering": {
+    "format": "{PREFIX}-{YEAR}-{COUNTER}",
+    "example": "ELV-2026-001",
+    "prefixConfigurable": true,
+    "counterResetsPerYear": true,
+    "editablePerInvoice": true
+  },
+
+  "modules": [
+    {
+      "id": "settings",
+      "name": "Settings",
+      "route": "/settings",
+      "tabs": [
+        {
+          "id": "company",
+          "name": "Company Details",
+          "firestorePath": "settings/company",
+          "fields": [
+            "companyName",
+            "logoUrl",
+            "addressLine1",
+            "addressLine2",
+            "city",
+            "stateProvince",
+            "postalCode",
+            "country",
+            "phone",
+            "email",
+            "website",
+            "gstHstNumber",
+            "defaultCurrency"
+          ]
+        },
+        {
+          "id": "invoiceConfig",
+          "name": "Invoice Settings",
+          "firestorePath": "settings/invoiceConfig",
+          "fields": [
+            "prefix",
+            "currentCounter",
+            "defaultDueDays",
+            "defaultNotes",
+            "defaultTerms",
+            "taxLabel",
+            "taxRate",
+            "taxEnabledByDefault"
+          ]
+        },
+        {
+          "id": "smtp",
+          "name": "Email (SMTP)",
+          "firestorePath": "settings/smtp",
+          "fields": [
+            "host",
+            "port",
+            "username",
+            "encryptedPassword",
+            "fromName",
+            "fromEmail"
+          ],
+          "actions": ["sendTestEmail"]
+        },
+        {
+          "id": "stripe",
+          "name": "Stripe",
+          "storage": "Firebase environment config / Secret Manager",
+          "fields": [
+            "publishableKey",
+            "secretKey",
+            "webhookSecret"
+          ],
+          "actions": ["testConnection"]
+        }
+      ]
+    },
+    {
+      "id": "customers",
+      "name": "Customers",
+      "route": "/customers",
+      "firestorePath": "customers/{id}",
+      "fields": [
+        "firstName",
+        "lastName",
+        "companyName",
+        "email",
+        "phone",
+        "billingAddressLine1",
+        "billingAddressLine2",
+        "city",
+        "stateProvince",
+        "postalCode",
+        "country",
+        "currencyPreference",
+        "notes",
+        "stripeCustomerId"
+      ],
+      "subCollections": [
+        {
+          "id": "paymentMethods",
+          "firestorePath": "customers/{id}/paymentMethods/{pmId}",
+          "fields": [
+            "paymentMethodId",
+            "last4",
+            "brand",
+            "expiry",
+            "allowOffSession"
+          ],
+          "note": "Raw card data is never stored. Only Stripe PaymentMethod references."
+        }
+      ],
+      "features": [
+        "Search by name or email",
+        "Invoice history per customer",
+        "Add card via Stripe SetupIntent + Stripe Elements",
+        "Per-card off-session charge toggle",
+        "Delete card"
+      ]
+    },
+    {
+      "id": "products",
+      "name": "Products",
+      "route": "/products",
+      "firestorePath": "products/{id}",
+      "fields": [
+        "name",
+        "description",
+        "unitPrice",
+        "currency",
+        "type",
+        "taxApplicable"
+      ],
+      "typeOptions": ["Product", "Service"]
+    },
+    {
+      "id": "invoices",
+      "name": "Invoices",
+      "route": "/invoices",
+      "firestorePath": "invoices/{id}",
+      "statuses": [
+        "Draft",
+        "Sent",
+        "Viewed",
+        "Partially Paid",
+        "Paid",
+        "Overdue",
+        "Void"
+      ],
+      "fields": [
+        "invoiceNumber",
+        "title",
+        "customerId",
+        "status",
+        "currency",
+        "issueDate",
+        "dueDate",
+        "lineItems",
+        "discount",
+        "taxRate",
+        "subtotal",
+        "taxAmount",
+        "discountAmount",
+        "total",
+        "amountPaid",
+        "notes",
+        "terms",
+        "token",
+        "pdfUrl",
+        "createdAt",
+        "sentAt",
+        "viewedAt",
+        "paidAt"
+      ],
+      "lineItemFields": [
+        "productId",
+        "description",
+        "qty",
+        "unitPrice",
+        "taxApplicable",
+        "lineTotal"
+      ],
+      "discountTypes": ["flat", "percent"],
+      "actions": [
+        "Save as Draft",
+        "Send Invoice",
+        "Preview",
+        "Download PDF",
+        "Record Manual Payment",
+        "Charge Saved Card",
+        "Void",
+        "Duplicate"
+      ],
+      "builderSections": [
+        {
+          "id": "header",
+          "fields": ["invoiceNumber", "title", "issueDate", "dueDate", "currency", "status"]
+        },
+        {
+          "id": "from",
+          "source": "settings/company",
+          "editable": false
+        },
+        {
+          "id": "to",
+          "source": "customers/{id}",
+          "editable": true,
+          "overridable": true
+        },
+        {
+          "id": "lineItems",
+          "features": ["Product selector", "Manual entry", "Tax toggle per line", "Drag to reorder", "Delete row"]
+        },
+        {
+          "id": "totals",
+          "calculations": ["subtotal", "discount", "tax", "total", "amountPaid", "balanceDue"]
+        },
+        {
+          "id": "notesAndTerms",
+          "preFilledFromSettings": true,
+          "editablePerInvoice": true
+        }
+      ]
+    },
+    {
+      "id": "publicPayPage",
+      "name": "Public Payment Page",
+      "route": "/pay/[token]",
+      "authRequired": false,
+      "features": [
+        "UUID token per invoice",
+        "Displays company logo, invoice details, line items, totals, notes",
+        "Stripe Payment Element (card, Apple Pay, Google Pay)",
+        "Sets viewedAt on first load",
+        "Payment confirmation screen",
+        "Already-paid status screen",
+        "Download Invoice PDF button"
+      ],
+      "payNowButtonColor": "#FE1D66"
+    },
+    {
+      "id": "dashboard",
+      "name": "Dashboard",
+      "route": "/",
+      "authRequired": true,
+      "metricCards": [
+        "Total Revenue (USD/CAD toggle)",
+        "Outstanding Amount",
+        "Overdue Amount",
+        "Total Invoices This Month"
+      ],
+      "charts": [
+        "Revenue over time — line chart (last 6 months)",
+        "Invoice status breakdown — donut chart"
+      ],
+      "tables": [
+        "Recent Invoices (last 10)",
+        "Overdue Invoices (with send reminder action)"
+      ]
+    }
+  ],
+
+  "cloudFunctions": [
+    {
+      "id": "sendInvoiceEmail",
+      "trigger": "HTTPS callable",
+      "description": "Sends invoice email with PDF attachment via Nodemailer SMTP",
+      "emailTemplate": {
+        "subject": "Invoice {invoiceNumber} from {companyName} — {amount} Due {dueDate}",
+        "ctaButton": "View & Pay Invoice",
+        "ctaUrl": "/pay/{token}",
+        "attachPDF": true
+      }
+    },
+    {
+      "id": "sendPaymentConfirmation",
+      "trigger": "HTTPS callable or triggered by webhook",
+      "description": "Sends payment confirmation to customer and business owner",
+      "recipients": ["customer", "businessOwner"]
+    },
+    {
+      "id": "generatePDF",
+      "trigger": "HTTPS callable",
+      "description": "Renders invoice HTML template via Puppeteer, uploads to Firebase Storage, returns signed URL",
+      "pdfIncludes": [
+        "Company logo",
+        "Company details",
+        "Invoice title and number",
+        "From / To sections",
+        "Line items table",
+        "Totals section",
+        "Notes and terms",
+        "Clickable Pay Now button",
+        "Footer"
+      ]
+    },
+    {
+      "id": "chargeCard",
+      "trigger": "HTTPS callable",
+      "description": "Creates Stripe PaymentIntent with confirm:true and off_session:true for saved card charges",
+      "inputs": ["invoiceId", "paymentMethodId"],
+      "onSuccess": ["Mark invoice Paid", "Log payment in Firestore", "Send confirmation email"],
+      "onFailure": ["Return error to UI", "Handle requires_action and card declines"]
+    },
+    {
+      "id": "stripeWebhook",
+      "trigger": "HTTPS (Stripe webhook)",
+      "events": [
+        {
+          "event": "payment_intent.succeeded",
+          "actions": ["Mark invoice Paid", "Log payment", "Send confirmation email"]
+        },
+        {
+          "event": "payment_intent.payment_failed",
+          "actions": ["Update invoice status", "Notify owner"]
+        },
+        {
+          "event": "setup_intent.succeeded",
+          "actions": ["Confirm card saved successfully"]
+        }
+      ]
+    }
+  ],
+
+  "firestoreSchema": {
+    "settings/company": {
+      "fields": ["companyName", "logoUrl", "address", "phone", "email", "website", "taxNumber", "defaultCurrency"]
+    },
+    "settings/smtp": {
+      "fields": ["host", "port", "username", "encryptedPassword", "fromName", "fromEmail"],
+      "note": "Password encrypted — never returned to frontend"
+    },
+    "settings/invoiceConfig": {
+      "fields": ["prefix", "currentCounter", "defaultDueDays", "taxLabel", "taxRate", "defaultNotes", "defaultTerms"]
+    },
+    "customers/{id}": {
+      "fields": ["firstName", "lastName", "companyName", "email", "phone", "billingAddress", "stripeCustomerId", "currencyPreference", "notes"],
+      "subCollections": {
+        "paymentMethods/{pmId}": {
+          "fields": ["paymentMethodId", "last4", "brand", "expiry", "allowOffSession"]
+        }
+      }
+    },
+    "products/{id}": {
+      "fields": ["name", "description", "unitPrice", "currency", "type", "taxApplicable"]
+    },
+    "invoices/{id}": {
+      "fields": ["invoiceNumber", "title", "customerId", "status", "currency", "issueDate", "dueDate", "lineItems", "discount", "taxRate", "subtotal", "taxAmount", "discountAmount", "total", "amountPaid", "notes", "terms", "token", "pdfUrl", "createdAt", "sentAt", "viewedAt", "paidAt"]
+    },
+    "payments/{id}": {
+      "fields": ["invoiceId", "amount", "currency", "method", "stripePaymentIntentId", "stripeChargeId", "paidAt", "recordedBy"]
+    }
+  },
+
+  "security": {
+    "firestoreRules": "Only authenticated owner can read/write all collections",
+    "publicPayPage": "Cloud Function validates token — only necessary invoice data returned",
+    "smtpPassword": "Encrypted in Firestore — decrypted only inside Cloud Functions",
+    "stripeSecretKey": "Firebase environment config or Google Secret Manager only — never in Firestore",
+    "cardData": "Never stored raw — Stripe PaymentMethod references only"
+  },
+
+  "formatting": {
+    "currency": "{amount} {currencyCode}",
+    "currencyExample": "$1,234.56 USD",
+    "dateFormat": "MMM DD, YYYY",
+    "dateExample": "Jun 04, 2026"
+  },
+
+  "buildOrder": [
+    "1. Firebase project setup + Auth + Firestore rules",
+    "2. Settings module (company details, invoice config, SMTP, Stripe keys)",
+    "3. Customers module (CRUD + Stripe Customer creation + saved cards)",
+    "4. Products module (CRUD)",
+    "5. Invoice Builder (line items, totals, draft/send flow)",
+    "6. PDF generation Cloud Function (Puppeteer)",
+    "7. Email sending Cloud Function (Nodemailer SMTP)",
+    "8. Public payment page + Stripe Payment Element",
+    "9. Off-session card charge Cloud Function",
+    "10. Stripe Webhook handler",
+    "11. Dashboard (metrics + charts)"
+  ],
+
+  "dependencies": {
+    "frontend": {
+      "next": "^14.0.0",
+      "react": "^18.0.0",
+      "react-dom": "^18.0.0",
+      "firebase": "^10.0.0",
+      "@stripe/stripe-js": "^3.0.0",
+      "@stripe/react-stripe-js": "^2.0.0",
+      "tailwindcss": "^3.4.0",
+      "recharts": "^2.10.0",
+      "date-fns": "^3.0.0",
+      "uuid": "^9.0.0",
+      "react-hook-form": "^7.50.0",
+      "react-hot-toast": "^2.4.0",
+      "@dnd-kit/core": "^6.0.0",
+      "@dnd-kit/sortable": "^8.0.0"
+    },
+    "cloudFunctions": {
+      "firebase-admin": "^12.0.0",
+      "firebase-functions": "^4.0.0",
+      "stripe": "^14.0.0",
+      "nodemailer": "^6.9.0",
+      "puppeteer": "^22.0.0",
+      "uuid": "^9.0.0"
+    }
+  }
+}
