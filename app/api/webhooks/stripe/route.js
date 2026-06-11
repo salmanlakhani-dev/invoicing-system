@@ -23,7 +23,7 @@ export async function POST(req) {
 
     if (!isMock && !isWebhookSecretMock && signature) {
       try {
-        const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+        const stripe = new Stripe(stripeKey);
         event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
       } catch (err) {
         console.error(`Webhook signature verification failed: ${err.message}`);
@@ -160,7 +160,7 @@ export async function POST(req) {
 
             if (!isMock) {
               try {
-                const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+                const stripe = new Stripe(stripeKey);
                 const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
                 if (pm.card) {
                   cardInfo = {
@@ -224,7 +224,7 @@ async function sendReceiptEmail(invoiceId, invoice, paidAt, paymentIntentId) {
 
   // 2. Fetch Company details
   const companySnap = await adminDb.collection("settings").doc("company").get();
-  const company = companySnap.exists() ? companySnap.data() : {};
+  const company = companySnap.exists ? companySnap.data() : {};
 
   // 3. Fetch SMTP settings
   const smtpSnap = await adminDb.collection("settings").doc("smtp").get();
@@ -237,8 +237,8 @@ async function sendReceiptEmail(invoiceId, invoice, paidAt, paymentIntentId) {
   // 4. Configure SMTP transporter
   const transporter = createTransporter(smtpConfig);
 
-  const fromName = smtpConfig.fromName || company.companyName || "InvoiceFlow";
-  const fromEmail = smtpConfig.fromEmail || company.email || "no-reply@invoiceflow.local";
+  const fromName = smtpConfig.fromName || company.companyName || "Elevate TM Invoicing";
+  const fromEmail = smtpConfig.fromEmail || company.email || "no-reply@elevatetm.com";
 
   const formattedAmount = new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -313,7 +313,7 @@ async function sendReceiptEmail(invoiceId, invoice, paidAt, paymentIntentId) {
         </div>
 
         <div style="border-top: 1px solid #F3F4F6; padding-top: 20px; font-size: 11px; color: #9CA3AF; text-align: center; line-height: 1.4;">
-          Sent securely by InvoiceFlow on behalf of <strong>${company.companyName || "InvoiceFlow"}</strong>.<br/>
+          Sent securely by Elevate TM Invoicing on behalf of <strong>${company.companyName || "Elevate TM Invoicing"}</strong>.<br/>
           For billing support or questions, please reply directly to this email.
         </div>
       </div>

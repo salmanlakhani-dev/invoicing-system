@@ -50,12 +50,7 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md animate-fade-in">
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-tr from-primary to-secondary shadow-md text-white font-extrabold text-2xl mb-4 tracking-wider">
-            IF
-          </div>
-          <h2 className="text-3xl font-extrabold text-brandText tracking-tight text-center">
-            InvoiceFlow
-          </h2>
+          <img src="/logo/Logo%20Full%20Color.png" alt="Elevate TM Invoicing Logo" className="h-16 mb-4 object-contain" />
           <p className="mt-2 text-sm text-muted text-center">
             Sign in to manage your business invoicing
           </p>

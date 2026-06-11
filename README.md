@@ -1,4 +1,4 @@
-# 🧾 InvoiceFlow — Full-Stack Invoicing System
+# 🧾 Elevate TM Invoicing — Full-Stack Invoicing System
 
 > A GoHighLevel-inspired invoicing platform built with Next.js (JavaScript), Firebase, Stripe, and Nodemailer.
 
@@ -348,4 +348,4 @@ Font: **Inter** (Google Fonts)
 
 ---
 
-*Built for Elevate Talent & Marketing — InvoiceFlow v1.0*
+*Built for Elevate Talent & Marketing — Elevate TM Invoicing v1.0*

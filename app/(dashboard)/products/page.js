@@ -286,123 +286,135 @@ export default function ProductsPage() {
 
       {/* ADD / EDIT CATALOG MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="glass-card max-w-md w-full bg-white rounded-2xl p-6 border border-border shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-sm font-bold text-brandText uppercase tracking-wider">
-                {editingProduct ? "Edit Catalog Item" : "Add Catalog Item"}
-              </h3>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-muted hover:text-brandText"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+          {/* Backdrop overlay */}
+          <div 
+            className="fixed inset-0 bg-black/45 backdrop-blur-xs transition-opacity animate-fade-in" 
+            onClick={() => setShowModal(false)} 
+          />
+
+          {/* Positioner */}
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-start justify-center p-4 sm:p-6 md:p-10">
+              {/* Panel */}
+              <div className="relative transform rounded-2xl bg-white p-6 border border-border shadow-2xl transition-all w-full max-w-md space-y-4 animate-fade-in my-8 z-20">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <h3 className="text-sm font-bold text-brandText uppercase tracking-wider">
+                    {editingProduct ? "Edit Catalog Item" : "Add Catalog Item"}
+                  </h3>
+                  <button
+                    onClick={() => setShowModal(false)}
+                    className="text-muted hover:text-brandText"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Item Name *</label>
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      value={form.name}
+                      onChange={handleInputChange}
+                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                      placeholder="Monthly SEO Audit"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Description</label>
+                    <textarea
+                      name="description"
+                      value={form.description}
+                      onChange={handleInputChange}
+                      rows={2}
+                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                      placeholder="Includes competitor analysis and ranking indicators..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Unit Price *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="unitPrice"
+                        required
+                        value={form.unitPrice}
+                        onChange={handleInputChange}
+                        className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                        placeholder="999.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Currency</label>
+                      <select
+                        name="currency"
+                        value={form.currency}
+                        onChange={handleInputChange}
+                        className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                      >
+                        <option value="CAD">CAD ($)</option>
+                        <option value="USD">USD ($)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Offer Type</label>
+                      <select
+                        name="type"
+                        value={form.type}
+                        onChange={handleInputChange}
+                        className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                      >
+                        <option value="Service">Service</option>
+                        <option value="Product">Product</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center pt-5">
+                      <input
+                        type="checkbox"
+                        id="taxApplicable"
+                        name="taxApplicable"
+                        checked={form.taxApplicable}
+                        onChange={handleInputChange}
+                        className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="taxApplicable" className="ml-2 text-[10px] font-bold uppercase tracking-wider text-brandText">
+                        Apply Tax
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => setShowModal(false)}
+                      className="px-4 py-2 border border-border text-muted hover:text-brandText text-xs font-bold rounded-xl transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="px-6 py-2 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
+                    >
+                      {isSubmitting ? "Saving..." : "Save Product"}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Item Name *</label>
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  value={form.name}
-                  onChange={handleInputChange}
-                  className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                  placeholder="Monthly SEO Audit"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Description</label>
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={handleInputChange}
-                  rows={2}
-                  className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                  placeholder="Includes competitor analysis and ranking indicators..."
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Unit Price *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="unitPrice"
-                    required
-                    value={form.unitPrice}
-                    onChange={handleInputChange}
-                    className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                    placeholder="999.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Currency</label>
-                  <select
-                    name="currency"
-                    value={form.currency}
-                    onChange={handleInputChange}
-                    className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                  >
-                    <option value="CAD">CAD ($)</option>
-                    <option value="USD">USD ($)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Offer Type</label>
-                  <select
-                    name="type"
-                    value={form.type}
-                    onChange={handleInputChange}
-                    className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                  >
-                    <option value="Service">Service</option>
-                    <option value="Product">Product</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center pt-5">
-                  <input
-                    type="checkbox"
-                    id="taxApplicable"
-                    name="taxApplicable"
-                    checked={form.taxApplicable}
-                    onChange={handleInputChange}
-                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                  />
-                  <label htmlFor="taxApplicable" className="ml-2 text-[10px] font-bold uppercase tracking-wider text-brandText">
-                    Apply Tax
-                  </label>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border border-border text-muted hover:text-brandText text-xs font-bold rounded-xl transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-6 py-2 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
-                >
-                  {isSubmitting ? "Saving..." : "Save Product"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

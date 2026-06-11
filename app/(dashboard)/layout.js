@@ -84,11 +84,8 @@ export default function DashboardLayout({ children }) {
       {/* SIDEBAR FOR DESKTOP */}
       <aside className="hidden md:flex md:flex-col md:w-64 glass-panel border-r border-border shrink-0">
         {/* Brand header */}
-        <div className="flex items-center gap-3 px-6 h-20 border-b border-border bg-white/10">
-          <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-gradient-to-tr from-primary to-secondary text-white font-extrabold text-lg tracking-wider shadow-sm">
-            IF
-          </div>
-          <span className="font-extrabold text-xl tracking-tight text-brandText">InvoiceFlow</span>
+        <div className="flex items-center px-6 h-20 border-b border-border bg-white/10">
+          <img src="/logo/Logo%20Full%20Color.png" alt="Elevate TM Invoicing Logo" className="h-10 object-contain" />
         </div>
 
         {/* Sidebar Nav */}
@@ -155,11 +152,8 @@ export default function DashboardLayout({ children }) {
             </svg>
           </button>
 
-          <div className="flex items-center gap-3 md:hidden">
-            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-tr from-primary to-secondary text-white font-extrabold text-sm tracking-wider">
-              IF
-            </div>
-            <span className="font-extrabold text-base tracking-tight text-brandText">InvoiceFlow</span>
+          <div className="flex items-center md:hidden">
+            <img src="/logo/Logo%20Full%20Color.png" alt="Elevate TM Invoicing Logo" className="h-8 object-contain" />
           </div>
 
           {/* Topbar Actions */}
@@ -193,11 +187,8 @@ export default function DashboardLayout({ children }) {
         >
           {/* Header inside drawer */}
           <div className="flex items-center justify-between px-6 h-20 border-b border-border bg-background/20">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-gradient-to-tr from-primary to-secondary text-white font-extrabold text-lg tracking-wider">
-                IF
-              </div>
-              <span className="font-extrabold text-xl tracking-tight text-brandText">InvoiceFlow</span>
+            <div className="flex items-center">
+              <img src="/logo/Logo%20Full%20Color.png" alt="Elevate TM Invoicing Logo" className="h-10 object-contain" />
             </div>
             <button
               onClick={() => setIsMobileOpen(false)}

@@ -1,6 +1,6 @@
 {
   "project": {
-    "name": "InvoiceFlow",
+    "name": "Elevate TM Invoicing",
     "description": "A GoHighLevel-inspired full-stack invoicing system with customer management, Stripe payments, saved cards, off-session charges, PDF generation, and SMTP email delivery.",
     "version": "1.0.0",
     "author": "Elevate Talent & Marketing",

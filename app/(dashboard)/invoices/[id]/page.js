@@ -234,11 +234,19 @@ export default function InvoiceDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ invoiceId })
       });
-      const data = await res.json();
-      if (data.success && data.pdfUrl) {
-        toast.success("PDF generated successfully!", { id: toastId });
-        window.open(data.pdfUrl, "_blank");
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${invoice?.invoiceNumber || "invoice"}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success("PDF downloaded successfully!", { id: toastId });
       } else {
+        const data = await res.json().catch(() => ({}));
         toast.error(data.error || "Failed to generate PDF.", { id: toastId });
       }
     } catch (err) {
@@ -569,149 +577,173 @@ export default function InvoiceDetailPage() {
 
       {/* RECORD MANUAL PAYMENT MODAL */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="glass-card max-w-md w-full bg-white rounded-2xl p-6 border border-border shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-sm font-bold text-brandText uppercase tracking-wider">Record Manual Payment</h3>
-              <button
-                onClick={() => setShowPaymentModal(false)}
-                className="text-muted hover:text-brandText"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+          {/* Backdrop overlay */}
+          <div 
+            className="fixed inset-0 bg-black/45 backdrop-blur-xs transition-opacity animate-fade-in" 
+            onClick={() => setShowPaymentModal(false)} 
+          />
+
+          {/* Positioner */}
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-start justify-center p-4 sm:p-6 md:p-10">
+              {/* Panel */}
+              <div className="relative transform rounded-2xl bg-white p-6 border border-border shadow-2xl transition-all w-full max-w-md space-y-4 animate-fade-in my-8 z-20">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <h3 className="text-sm font-bold text-brandText uppercase tracking-wider">Record Manual Payment</h3>
+                  <button
+                    onClick={() => setShowPaymentModal(false)}
+                    className="text-muted hover:text-brandText"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <form onSubmit={handleRecordPayment} className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">
+                      Payment Amount ({invoice.currency}) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={manualAmount}
+                      onChange={(e) => setManualAmount(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                      placeholder={balanceDue.toFixed(2)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Payment Method</label>
+                    <select
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                      <option value="Stripe">Stripe Manual</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="E-Transfer">Interac E-Transfer</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Internal Reference Note</label>
+                    <textarea
+                      value={paymentNote}
+                      onChange={(e) => setPaymentNote(e.target.value)}
+                      rows={2}
+                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                      placeholder="e.g. Received via Interac confirmation ID #11288..."
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => setShowPaymentModal(false)}
+                      className="px-4 py-2 border border-border text-muted hover:text-brandText text-xs font-bold rounded-xl transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isRecording}
+                      className="px-6 py-2 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
+                    >
+                      {isRecording ? "Recording..." : "Record Payment"}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-
-            <form onSubmit={handleRecordPayment} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">
-                  Payment Amount ({invoice.currency}) *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={manualAmount}
-                  onChange={(e) => setManualAmount(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                  placeholder={balanceDue.toFixed(2)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Payment Method</label>
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                >
-                  <option value="Cash">Cash</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="Stripe">Stripe Manual</option>
-                  <option value="Cheque">Cheque</option>
-                  <option value="E-Transfer">Interac E-Transfer</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Internal Reference Note</label>
-                <textarea
-                  value={paymentNote}
-                  onChange={(e) => setPaymentNote(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                  placeholder="e.g. Received via Interac confirmation ID #11288..."
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setShowPaymentModal(false)}
-                  className="px-4 py-2 border border-border text-muted hover:text-brandText text-xs font-bold rounded-xl transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isRecording}
-                  className="px-6 py-2 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
-                >
-                  {isRecording ? "Recording..." : "Record Payment"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
 
       {/* CHARGE SAVED CARD MODAL */}
       {showChargeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="glass-card max-w-md w-full bg-white rounded-2xl p-6 border border-border shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-sm font-bold text-brandText uppercase tracking-wider">Charge Saved Card</h3>
-              <button
-                onClick={() => setShowChargeModal(false)}
-                className="text-muted hover:text-brandText"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+          {/* Backdrop overlay */}
+          <div 
+            className="fixed inset-0 bg-black/45 backdrop-blur-xs transition-opacity animate-fade-in" 
+            onClick={() => setShowChargeModal(false)} 
+          />
 
-            <div className="space-y-4">
-              <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 space-y-1">
-                <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Amount to Charge:</span>
-                <p className="text-xl font-black text-brandText">{formatCurrency(balanceDue, invoice.currency)}</p>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-2">Select Saved Card</label>
-                <div className="space-y-2">
-                  {eligibleCards.map((card) => (
-                    <label
-                      key={card.id}
-                      className={`flex items-center justify-between p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all ${
-                        selectedCardId === card.id ? "border-primary bg-primary/5" : "border-border bg-white"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          name="saved_card"
-                          checked={selectedCardId === card.id}
-                          onChange={() => setSelectedCardId(card.id)}
-                          className="h-4 w-4 text-primary border-border focus:ring-primary"
-                        />
-                        <div className="text-xs font-semibold text-brandText">
-                          <p className="capitalize font-bold">{card.brand} •••• {card.last4}</p>
-                          <p className="text-[10px] text-muted font-medium">Expires {card.expiry}</p>
-                        </div>
-                      </div>
-                    </label>
-                  ))}
+          {/* Positioner */}
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-start justify-center p-4 sm:p-6 md:p-10">
+              {/* Panel */}
+              <div className="relative transform rounded-2xl bg-white p-6 border border-border shadow-2xl transition-all w-full max-w-md space-y-4 animate-fade-in my-8 z-20">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <h3 className="text-sm font-bold text-brandText uppercase tracking-wider">Charge Saved Card</h3>
+                  <button
+                    onClick={() => setShowChargeModal(false)}
+                    className="text-muted hover:text-brandText"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
-              </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setShowChargeModal(false)}
-                  className="px-4 py-2 border border-border text-muted hover:text-brandText text-xs font-bold rounded-xl transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleChargeCard}
-                  disabled={isCharging || !selectedCardId}
-                  className="px-6 py-2 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
-                >
-                  {isCharging ? "Charging..." : "Execute Charge"}
-                </button>
+                <div className="space-y-4">
+                  <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 space-y-1">
+                    <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Amount to Charge:</span>
+                    <p className="text-xl font-black text-brandText">{formatCurrency(balanceDue, invoice.currency)}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-2">Select Saved Card</label>
+                    <div className="space-y-2">
+                      {eligibleCards.map((card) => (
+                        <label
+                          key={card.id}
+                          className={`flex items-center justify-between p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition-all ${
+                            selectedCardId === card.id ? "border-primary bg-primary/5" : "border-border bg-white"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="radio"
+                              name="saved_card"
+                              checked={selectedCardId === card.id}
+                              onChange={() => setSelectedCardId(card.id)}
+                              className="h-4 w-4 text-primary border-border focus:ring-primary"
+                            />
+                            <div className="text-xs font-semibold text-brandText">
+                              <p className="capitalize font-bold">{card.brand} •••• {card.last4}</p>
+                              <p className="text-[10px] text-muted font-medium">Expires {card.expiry}</p>
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => setShowChargeModal(false)}
+                      className="px-4 py-2 border border-border text-muted hover:text-brandText text-xs font-bold rounded-xl transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleChargeCard}
+                      disabled={isCharging || !selectedCardId}
+                      className="px-6 py-2 bg-gradient-to-tr from-primary to-secondary hover:opacity-95 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
+                    >
+                      {isCharging ? "Charging..." : "Execute Charge"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

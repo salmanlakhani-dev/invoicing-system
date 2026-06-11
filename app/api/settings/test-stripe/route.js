@@ -23,9 +23,7 @@ export async function POST(req) {
     }
 
     // Initialize Stripe
-    const stripe = new Stripe(stripeKey, {
-      apiVersion: "2023-10-16",
-    });
+    const stripe = new Stripe(stripeKey);
 
     // Verify key by retrieving account details
     const accountInfo = await stripe.accounts.retrieve();

@@ -35,7 +35,7 @@ export async function POST(req) {
 
     // 3. Fetch Company Details
     const companySnap = await adminDb.collection("settings").doc("company").get();
-    const company = companySnap.exists() ? companySnap.data() : {};
+    const company = companySnap.exists ? companySnap.data() : {};
 
     // 4. Fetch SMTP settings
     const smtpSnap = await adminDb.collection("settings").doc("smtp").get();
@@ -49,7 +49,7 @@ export async function POST(req) {
 
     // 5. Fetch Invoicing config (for tax labels/rates)
     const configSnap = await adminDb.collection("settings").doc("invoiceConfig").get();
-    const config = configSnap.exists() ? configSnap.data() : {};
+    const config = configSnap.exists ? configSnap.data() : {};
 
     // 6. Compile PDF HTML & Render to Buffer via Puppeteer
     console.log("Rendering PDF buffer inline for email attachment...");
@@ -68,29 +68,13 @@ export async function POST(req) {
     });
     await browser.close();
 
-    // 7. Save PDF to Storage in the background
-    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "invoice-flow-dummy.appspot.com";
-    const bucket = admin.storage().bucket(bucketName);
-    const filePath = `invoices/${invoiceId}.pdf`;
-    const file = bucket.file(filePath);
-
-    // Run upload promise
-    const uploadPromise = file.save(pdfBuffer, { contentType: "application/pdf" }).then(async () => {
-      let url = "";
-      try {
-        const [signedUrl] = await file.getSignedUrl({ action: "read", expires: "03-01-2500" });
-        url = signedUrl;
-      } catch (err) {
-        url = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media`;
-      }
-      await invoiceRef.update({ pdfUrl: url });
-    }).catch(err => console.error("Async Storage PDF upload failed:", err));
+    // 7. PDF buffer generated inline. Firebase Storage upload bypassed.
 
     // 8. Configure SMTP transporter
     const transporter = createTransporter(smtpConfig);
 
-    const fromName = smtpConfig.fromName || company.companyName || "InvoiceFlow";
-    const fromEmail = smtpConfig.fromEmail || company.email || "no-reply@invoiceflow.local";
+    const fromName = smtpConfig.fromName || company.companyName || "Elevate TM Invoicing";
+    const fromEmail = smtpConfig.fromEmail || company.email || "no-reply@elevatetm.com";
     const formattedAmount = new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: invoice.currency || "CAD",
@@ -106,7 +90,7 @@ export async function POST(req) {
     const mailOptions = {
       from: `"${fromName}" <${fromEmail}>`,
       to: customer.email,
-      subject: `Invoice ${invoice.invoiceNumber} from ${company.companyName || "InvoiceFlow"} — ${formattedAmount} Due ${formattedDueDate}`,
+      subject: `Invoice ${invoice.invoiceNumber} from ${company.companyName || "Elevate TM Invoicing"} — ${formattedAmount} Due ${formattedDueDate}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #E5E7EB; border-radius: 12px; background-color: #FFFFFF;">
           <div style="background-color: #2A2A6C; color: #FFFFFF; padding: 25px; border-radius: 8px 8px 0 0; text-align: center;">
@@ -144,7 +128,7 @@ export async function POST(req) {
             <p>If you have any questions, please reply directly to this email.</p>
           </div>
           <div style="border-top: 1px solid #E5E7EB; padding-top: 15px; font-size: 11px; color: #6B7280; text-align: center;">
-            Sent securely by InvoiceFlow on behalf of ${company.companyName || "InvoiceFlow"}.
+            Sent securely by Elevate TM Invoicing on behalf of ${company.companyName || "Elevate TM Invoicing"}.
           </div>
         </div>
       `,
@@ -170,8 +154,7 @@ export async function POST(req) {
     }
     await invoiceRef.update(updatePayload);
 
-    // Await upload promise before returning response
-    await uploadPromise;
+
 
     return NextResponse.json({
       success: true,

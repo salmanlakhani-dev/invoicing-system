@@ -50,7 +50,7 @@ export async function POST(req) {
 
     if (!isMock) {
       // Real Stripe charge
-      const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+      const stripe = new Stripe(stripeKey);
 
       try {
         const paymentIntent = await stripe.paymentIntents.create({

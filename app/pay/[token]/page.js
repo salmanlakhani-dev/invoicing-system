@@ -101,12 +101,20 @@ export default function PublicPayPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ invoiceId: invoice.id })
       });
-      const resData = await res.json();
-      if (resData.success) {
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${invoice?.invoiceNumber || "invoice"}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
         toast.success("PDF ready!", { id: toastId });
-        window.open(resData.pdfUrl, "_blank");
       } else {
-        toast.error(resData.error || "Failed to download PDF.", { id: toastId });
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Failed to download PDF.", { id: toastId });
       }
     } catch (err) {
       toast.error("Network error rendering PDF.", { id: toastId });
@@ -146,9 +154,11 @@ export default function PublicPayPage() {
           <div className="md:col-span-2 glass-card rounded-2xl p-6 md:p-8 border border-border bg-white shadow-lg text-xs font-semibold text-brandText space-y-8">
             <div className="flex justify-between items-start gap-4">
               <div className="space-y-1">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-primary to-secondary text-white font-extrabold flex items-center justify-center text-base tracking-wider mb-2">
-                  IF
-                </div>
+                {company.logoUrl ? (
+                  <img src={company.logoUrl} alt="Logo" className="h-10 object-contain mb-2" />
+                ) : (
+                  <img src="/logo/Logo%20Icon%20Color.png" alt="Elevate TM Invoicing Logo" className="h-10 object-contain mb-2" />
+                )}
                 <h2 className="text-lg font-black text-primary">{company.companyName || "Elevate Marketing Group"}</h2>
                 <p className="text-muted">{company.addressLine1} {company.addressLine2}</p>
                 <p className="text-muted">{company.city}, {company.stateProvince} {company.postalCode}</p>

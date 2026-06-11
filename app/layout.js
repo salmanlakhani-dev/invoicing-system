@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "InvoiceFlow — Smart Full-Stack Invoicing",
+  title: "Elevate TM Invoicing — Smart Invoicing Platform",
   description: "Manage customers, products, and invoices. Accept secure Stripe payments and automate card charges.",
 };
 

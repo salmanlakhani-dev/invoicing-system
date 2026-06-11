@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Firebase Private Keys
+firebaseadminsdk.json
+*adminsdk*.json
+*serviceaccount*.json
+*service-account*.json
+
+# Scratch Files
+scratch/

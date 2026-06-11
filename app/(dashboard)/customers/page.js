@@ -281,204 +281,216 @@ export default function CustomersPage() {
 
       {/* ADD CUSTOMER MODAL */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-fade-in overflow-y-auto">
-          <div className="glass-card max-w-2xl w-full bg-white rounded-2xl p-6 md:p-8 border border-border shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border pb-4">
-              <h3 className="text-base font-bold text-brandText uppercase tracking-wider">Add New Customer</h3>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-muted hover:text-brandText"
-              >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+          {/* Backdrop overlay */}
+          <div 
+            className="fixed inset-0 bg-black/45 backdrop-blur-xs transition-opacity animate-fade-in" 
+            onClick={() => setShowModal(false)} 
+          />
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Primary Contact Details */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold text-primary uppercase tracking-wider">Contact Info</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">First Name *</label>
-                    <input
-                      type="text"
-                      name="firstName"
-                      required
-                      value={form.firstName}
-                      onChange={handleInputChange}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                      placeholder="Jane"
-                    />
+          {/* Positioner */}
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-start justify-center p-4 sm:p-6 md:p-10">
+              {/* Panel */}
+              <div className="relative transform rounded-2xl bg-white p-6 md:p-8 text-left shadow-2xl transition-all w-full max-w-2xl border border-border space-y-6 animate-fade-in my-8 z-20">
+                <div className="flex items-center justify-between border-b border-border pb-4">
+                  <h3 className="text-base font-bold text-brandText uppercase tracking-wider">Add New Customer</h3>
+                  <button
+                    onClick={() => setShowModal(false)}
+                    className="text-muted hover:text-brandText"
+                  >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Primary Contact Details */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-primary uppercase tracking-wider">Contact Info</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">First Name *</label>
+                        <input
+                          type="text"
+                          name="firstName"
+                          required
+                          value={form.firstName}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="Jane"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Last Name *</label>
+                        <input
+                          type="text"
+                          name="lastName"
+                          required
+                          value={form.lastName}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="Doe"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Company Name</label>
+                        <input
+                          type="text"
+                          name="companyName"
+                          value={form.companyName}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="Acme Corporation"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Email *</label>
+                        <input
+                          type="email"
+                          name="email"
+                          required
+                          value={form.email}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="jane.doe@example.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Phone</label>
+                        <input
+                          type="text"
+                          name="phone"
+                          value={form.phone}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="+1 (555) 012-3456"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Currency Preference</label>
+                        <select
+                          name="currencyPreference"
+                          value={form.currencyPreference}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                        >
+                          <option value="CAD">CAD ($)</option>
+                          <option value="USD">USD ($)</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Last Name *</label>
-                    <input
-                      type="text"
-                      name="lastName"
-                      required
-                      value={form.lastName}
-                      onChange={handleInputChange}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                      placeholder="Doe"
-                    />
+
+                  {/* Billing Address Details */}
+                  <div className="space-y-4 pt-4 border-t border-border">
+                    <h4 className="text-xs font-bold text-primary uppercase tracking-wider">Billing Address</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Address Line 1</label>
+                        <input
+                          type="text"
+                          name="billingAddressLine1"
+                          value={form.billingAddressLine1}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="456 Main St"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Address Line 2</label>
+                        <input
+                          type="text"
+                          name="billingAddressLine2"
+                          value={form.billingAddressLine2}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="Apt 2B"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">City</label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={form.city}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="Vancouver"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Province / State</label>
+                        <input
+                          type="text"
+                          name="stateProvince"
+                          value={form.stateProvince}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="BC"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Postal / Zip Code</label>
+                        <input
+                          type="text"
+                          name="postalCode"
+                          value={form.postalCode}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="V6B 3H6"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Country</label>
+                        <input
+                          type="text"
+                          name="country"
+                          value={form.country}
+                          onChange={handleInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="Canada"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Company Name</label>
-                    <input
-                      type="text"
-                      name="companyName"
-                      value={form.companyName}
-                      onChange={handleInputChange}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                      placeholder="Acme Corporation"
-                    />
+
+                  {/* Internal Notes */}
+                  <div className="space-y-4 pt-4 border-t border-border">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Internal Notes</label>
+                      <textarea
+                        name="notes"
+                        value={form.notes}
+                        onChange={handleInputChange}
+                        rows={2}
+                        className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                        placeholder="Wants invoices on 1st of the month, etc..."
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Email *</label>
-                    <input
-                      type="email"
-                      name="email"
-                      required
-                      value={form.email}
-                      onChange={handleInputChange}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                      placeholder="jane.doe@example.com"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Phone</label>
-                    <input
-                      type="text"
-                      name="phone"
-                      value={form.phone}
-                      onChange={handleInputChange}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                      placeholder="+1 (555) 012-3456"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Currency Preference</label>
-                    <select
-                      name="currencyPreference"
-                      value={form.currencyPreference}
-                      onChange={handleInputChange}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => setShowModal(false)}
+                      className="px-4 py-2 border border-border text-muted hover:text-brandText text-xs font-bold rounded-xl transition-all"
                     >
-                      <option value="CAD">CAD ($)</option>
-                      <option value="USD">USD ($)</option>
-                    </select>
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="px-6 py-2 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
+                    >
+                      {isSubmitting ? "Provisioning..." : "Add & Provision Client"}
+                    </button>
                   </div>
-                </div>
+                </form>
               </div>
-
-              {/* Billing Address Details */}
-              <div className="space-y-4 pt-4 border-t border-border">
-                <h4 className="text-xs font-bold text-primary uppercase tracking-wider">Billing Address</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Address Line 1</label>
-                    <input
-                      type="text"
-                      name="billingAddressLine1"
-                      value={form.billingAddressLine1}
-                      onChange={handleInputChange}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                      placeholder="456 Main St"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Address Line 2</label>
-                    <input
-                      type="text"
-                      name="billingAddressLine2"
-                      value={form.billingAddressLine2}
-                      onChange={handleInputChange}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                      placeholder="Apt 2B"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">City</label>
-                    <input
-                      type="text"
-                      name="city"
-                      value={form.city}
-                      onChange={handleInputChange}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                      placeholder="Vancouver"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Province / State</label>
-                    <input
-                      type="text"
-                      name="stateProvince"
-                      value={form.stateProvince}
-                      onChange={handleInputChange}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                      placeholder="BC"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Postal / Zip Code</label>
-                    <input
-                      type="text"
-                      name="postalCode"
-                      value={form.postalCode}
-                      onChange={handleInputChange}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                      placeholder="V6B 3H6"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Country</label>
-                    <input
-                      type="text"
-                      name="country"
-                      value={form.country}
-                      onChange={handleInputChange}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                      placeholder="Canada"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Internal Notes */}
-              <div className="space-y-4 pt-4 border-t border-border">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Internal Notes</label>
-                  <textarea
-                    name="notes"
-                    value={form.notes}
-                    onChange={handleInputChange}
-                    rows={2}
-                    className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
-                    placeholder="Wants invoices on 1st of the month, etc..."
-                  />
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border border-border text-muted hover:text-brandText text-xs font-bold rounded-xl transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-6 py-2 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
-                >
-                  {isSubmitting ? "Provisioning..." : "Add & Provision Client"}
-                </button>
-              </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

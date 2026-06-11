@@ -35,7 +35,7 @@ export async function GET(req, { params }) {
 
     // 3. Fetch Company settings
     const companySnap = await adminDb.collection("settings").doc("company").get();
-    const company = companySnap.exists() ? companySnap.data() : {};
+    const company = companySnap.exists ? companySnap.data() : {};
 
     // 4. Update viewedAt timestamp and status (Sent -> Viewed)
     const updateData = {};
@@ -58,7 +58,7 @@ export async function GET(req, { params }) {
 
     // Fetch stripe keys from settings or env
     const stripeSnap = await adminDb.collection("settings").doc("stripe").get();
-    const stripeConfig = stripeSnap.exists() ? stripeSnap.data() : {};
+    const stripeConfig = stripeSnap.exists ? stripeSnap.data() : {};
     publishableKey = stripeConfig.publishableKey || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "pk_test_Dummy";
 
     if (balanceDue > 0) {
@@ -68,11 +68,11 @@ export async function GET(req, { params }) {
       if (!isMock) {
         // Execute real PaymentIntent
         try {
-          const stripe = new Stripe(stripeSecretKey, { apiVersion: "2023-10-16" });
+          const stripe = new Stripe(stripeSecretKey);
           const paymentIntent = await stripe.paymentIntents.create({
             amount: Math.round(balanceDue * 100), // convert to cents
             currency: invoice.currency.toLowerCase(),
-            customer: customer.stripeCustomerId || undefined,
+            customer: (customer.stripeCustomerId && !customer.stripeCustomerId.startsWith("cus_mock")) ? customer.stripeCustomerId : undefined,
             metadata: {
               invoiceId,
               invoiceNumber: invoice.invoiceNumber

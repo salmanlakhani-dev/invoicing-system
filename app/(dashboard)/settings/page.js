@@ -715,46 +715,58 @@ export default function SettingsPage() {
 
       {/* SMTP EMAIL TEST MODAL */}
       {showEmailModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="glass-card max-w-md w-full bg-white rounded-2xl p-6 border border-border shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-sm font-bold text-brandText uppercase tracking-wider">Test SMTP Mailer</h3>
-              <button
-                onClick={() => setShowEmailModal(false)}
-                className="text-muted hover:text-brandText"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">Recipient Email Address</label>
-              <input
-                type="email"
-                required
-                value={testRecipient}
-                onChange={(e) => setTestRecipient(e.target.value)}
-                className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
-                placeholder="developer@invoiceflow.local"
-              />
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowEmailModal(false)}
-                className="px-4 py-2 border border-border text-muted hover:text-brandText text-xs font-bold rounded-xl transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleTestEmail}
-                disabled={isTestingEmail}
-                className="px-4 py-2 bg-secondary hover:bg-secondary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
-              >
-                {isTestingEmail ? "Sending..." : "Send Test Mail"}
-              </button>
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+          {/* Backdrop overlay */}
+          <div 
+            className="fixed inset-0 bg-black/45 backdrop-blur-xs transition-opacity animate-fade-in" 
+            onClick={() => setShowEmailModal(false)} 
+          />
+
+          {/* Positioner */}
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-start justify-center p-4 sm:p-6 md:p-10">
+              {/* Panel */}
+              <div className="relative transform rounded-2xl bg-white p-6 border border-border shadow-2xl transition-all w-full max-w-md space-y-4 animate-fade-in my-8 z-20">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <h3 className="text-sm font-bold text-brandText uppercase tracking-wider">Test SMTP Mailer</h3>
+                  <button
+                    onClick={() => setShowEmailModal(false)}
+                    className="text-muted hover:text-brandText"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">Recipient Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={testRecipient}
+                    onChange={(e) => setTestRecipient(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+                    placeholder="developer@elevatetm.com"
+                  />
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEmailModal(false)}
+                    className="px-4 py-2 border border-border text-muted hover:text-brandText text-xs font-bold rounded-xl transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleTestEmail}
+                    disabled={isTestingEmail}
+                    className="px-4 py-2 bg-secondary hover:bg-secondary/90 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
+                  >
+                    {isTestingEmail ? "Sending..." : "Send Test Mail"}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

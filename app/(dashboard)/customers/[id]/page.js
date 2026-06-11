@@ -355,27 +355,39 @@ export default function CustomerDetailPage() {
 
       {/* STRIPE CARD SETUP ELEMENT MODAL */}
       {showCardModal && clientSecret && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="glass-card max-w-md w-full bg-white rounded-2xl p-6 border border-border shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-sm font-bold text-brandText uppercase tracking-wider">Save Card to Customer</h3>
-              <button
-                onClick={() => setShowCardModal(false)}
-                className="text-muted hover:text-brandText"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+          {/* Backdrop overlay */}
+          <div 
+            className="fixed inset-0 bg-black/45 backdrop-blur-xs transition-opacity animate-fade-in" 
+            onClick={() => setShowCardModal(false)} 
+          />
 
-            {/* Elements Provider */}
-            <Elements stripe={getStripe()} options={{ clientSecret }}>
-              <StripeCardForm 
-                customerId={customerId} 
-                onSuccess={() => setShowCardModal(false)} 
-              />
-            </Elements>
+          {/* Positioner */}
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-start justify-center p-4 sm:p-6 md:p-10">
+              {/* Panel */}
+              <div className="relative transform rounded-2xl bg-white p-6 border border-border shadow-2xl transition-all w-full max-w-md space-y-4 animate-fade-in my-8 z-20">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <h3 className="text-sm font-bold text-brandText uppercase tracking-wider">Save Card to Customer</h3>
+                  <button
+                    onClick={() => setShowCardModal(false)}
+                    className="text-muted hover:text-brandText"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Elements Provider */}
+                <Elements stripe={getStripe()} options={{ clientSecret }}>
+                  <StripeCardForm 
+                    customerId={customerId} 
+                    onSuccess={() => setShowCardModal(false)} 
+                  />
+                </Elements>
+              </div>
+            </div>
           </div>
         </div>
       )}

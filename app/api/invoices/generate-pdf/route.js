@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { compileInvoiceHTML } from "@/lib/pdf-template";
 import puppeteer from "puppeteer";
-import admin from "firebase-admin";
 
 /**
- * Generates an invoice PDF via Puppeteer, uploads it to Firebase Storage,
- * and saves the generated URL to the invoice document.
+ * Generates an invoice PDF via Puppeteer and returns it directly as a binary PDF response.
+ * This avoids any dependency on Firebase Storage buckets.
  */
 export async function POST(req) {
   try {
@@ -34,10 +33,7 @@ export async function POST(req) {
 
     // 3. Fetch Company Details & Invoicing Configuration
     const companySnap = await adminDb.collection("settings").doc("company").get();
-    const company = companySnap.exists() ? companySnap.data() : {};
-
-    const configSnap = await adminDb.collection("settings").doc("invoiceConfig").get();
-    const config = configSnap.exists() ? configSnap.data() : {};
+    const company = companySnap.exists ? companySnap.data() : {};
 
     // 4. Compile HTML String
     const htmlContent = compileInvoiceHTML({ invoice, company, customer });
@@ -61,42 +57,13 @@ export async function POST(req) {
     await browser.close();
     console.log("Puppeteer rendering complete.");
 
-    // 6. Upload PDF to Firebase Storage
-    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "invoice-flow-dummy.appspot.com";
-    const bucket = admin.storage().bucket(bucketName);
-    const filePath = `invoices/${invoiceId}.pdf`;
-    const file = bucket.file(filePath);
-
-    await file.save(pdfBuffer, {
-      contentType: "application/pdf",
-      metadata: {
-        metadata: {
-          invoiceId,
-          invoiceNumber: invoice.invoiceNumber,
-        }
-      }
-    });
-
-    // 7. Generate Signed URL with fallback to public media URL
-    let pdfUrl = "";
-    try {
-      const [signedUrl] = await file.getSignedUrl({
-        action: "read",
-        expires: "03-01-2500", // Far future date
-      });
-      pdfUrl = signedUrl;
-    } catch (storageErr) {
-      console.warn("Storage credentials missing for Signed URL, falling back to public media url:", storageErr);
-      pdfUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media`;
-    }
-
-    // 8. Update Invoice with the generated pdfUrl
-    await invoiceRef.update({ pdfUrl });
-
-    return NextResponse.json({
-      success: true,
-      message: "PDF generated and saved successfully!",
-      pdfUrl,
+    // 6. Return the PDF buffer directly in the response
+    return new NextResponse(pdfBuffer, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${invoice.invoiceNumber || "invoice"}.pdf"`,
+      },
     });
   } catch (err) {
     console.error("PDF Generation Handler Failure:", err);

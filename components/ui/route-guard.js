@@ -35,7 +35,7 @@ export function RouteGuard({ children }) {
             <div className="absolute inset-0 rounded-full border-4 border-primary/20"></div>
             <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
           </div>
-          <p className="text-sm font-medium text-primary/80 tracking-wider">Loading InvoiceFlow...</p>
+          <p className="text-sm font-medium text-primary/80 tracking-wider">Loading Elevate TM Invoicing...</p>
         </div>
       </div>
     );
