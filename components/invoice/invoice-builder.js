@@ -6,6 +6,22 @@ import { db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
+const formatCurrency = (amount, currencyCode) => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currencyCode || "CAD",
+  }).format(amount) + ` ${currencyCode || "CAD"}`;
+};
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return "N/A";
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit"
+  });
+};
+
 export default function InvoiceBuilder({ invoiceId }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
