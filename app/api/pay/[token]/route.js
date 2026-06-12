@@ -55,6 +55,7 @@ export async function GET(req, { params }) {
     const balanceDue = invoice.total - (invoice.amountPaid || 0);
     let clientSecret = "";
     let publishableKey = "";
+    let stripeError = null;
 
     // Fetch stripe keys from settings or env
     const stripeSnap = await adminDb.collection("settings").doc("stripe").get();
@@ -67,20 +68,29 @@ export async function GET(req, { params }) {
 
       if (!isMock) {
         // Execute real PaymentIntent
-        try {
-          const stripe = new Stripe(stripeSecretKey);
-          const paymentIntent = await stripe.paymentIntents.create({
-            amount: Math.round(balanceDue * 100), // convert to cents
-            currency: invoice.currency.toLowerCase(),
-            customer: (customer.stripeCustomerId && !customer.stripeCustomerId.startsWith("cus_mock")) ? customer.stripeCustomerId : undefined,
-            metadata: {
-              invoiceId,
-              invoiceNumber: invoice.invoiceNumber
-            }
-          });
-          clientSecret = paymentIntent.client_secret;
-        } catch (stripeErr) {
-          console.error("Stripe PaymentIntent Error:", stripeErr);
+        const pubIsLive = publishableKey.startsWith("pk_live");
+        const secIsLive = stripeSecretKey.startsWith("sk_live");
+
+        if (pubIsLive !== secIsLive) {
+          stripeError = `Stripe Key Mismatch: The database settings have a ${pubIsLive ? "Live" : "Test"} publishable key (${publishableKey.substring(0, 8)}...), but the server environment (STRIPE_SECRET_KEY) has a ${secIsLive ? "Live" : "Test"} secret key (${stripeSecretKey.substring(0, 8)}...). Please align your environment settings.`;
+          console.error("Stripe Key Mismatch Error:", stripeError);
+        } else {
+          try {
+            const stripe = new Stripe(stripeSecretKey);
+            const paymentIntent = await stripe.paymentIntents.create({
+              amount: Math.round(balanceDue * 100), // convert to cents
+              currency: invoice.currency.toLowerCase(),
+              customer: (customer.stripeCustomerId && !customer.stripeCustomerId.startsWith("cus_mock")) ? customer.stripeCustomerId : undefined,
+              metadata: {
+                invoiceId,
+                invoiceNumber: invoice.invoiceNumber
+              }
+            });
+            clientSecret = paymentIntent.client_secret;
+          } catch (stripeErr) {
+            console.error("Stripe PaymentIntent Error:", stripeErr);
+            stripeError = stripeErr.message || "Failed to create Stripe PaymentIntent";
+          }
         }
       } else {
         // Mock clientSecret for local dev sandbox
@@ -95,7 +105,8 @@ export async function GET(req, { params }) {
       customer,
       company,
       clientSecret,
-      publishableKey
+      publishableKey,
+      stripeError
     });
   } catch (err) {
     console.error("Public Invoice Fetch Failure:", err);

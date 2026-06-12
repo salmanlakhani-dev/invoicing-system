@@ -30,6 +30,9 @@ export default function PublicPayPage() {
             stripePromise = loadStripe(result.publishableKey);
             setIsStripeLoaded(true);
           }
+          if (result.stripeError) {
+            toast.error(result.stripeError, { duration: 8000 });
+          }
         } else {
           toast.error(result.error || "Failed to load invoice.");
         }
@@ -72,10 +75,10 @@ export default function PublicPayPage() {
     );
   }
 
-  const { invoice, customer, company, clientSecret } = data;
+  const { invoice, customer, company, clientSecret, stripeError } = data;
   const balanceDue = invoice.total - (invoice.amountPaid || 0);
   const isPaid = invoice.status === "Paid" || balanceDue <= 0;
-  const isMockStripe = clientSecret.startsWith("pi_mock_secret_");
+  const isMockStripe = clientSecret && clientSecret.startsWith("pi_mock_secret_");
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-US", {
@@ -276,7 +279,17 @@ export default function PublicPayPage() {
                   <p className="text-[10px] text-muted">Submit your payment details below to settle this balance instantly.</p>
                 </div>
 
-                {isMockStripe ? (
+                {stripeError ? (
+                  <div className="p-4 border border-rose-200 rounded-xl bg-rose-50/50 space-y-2 text-xs text-left">
+                    <h4 className="font-bold text-rose-700 uppercase tracking-wider">⚠️ Payment Gateway Error</h4>
+                    <p className="text-rose-600/90 leading-relaxed font-semibold">
+                      {stripeError}
+                    </p>
+                    <p className="text-[10px] text-muted pt-1 border-t border-rose-100">
+                      Stripe secret keys must match your publishable key mode and must be set in your server environments (Vercel or .env.local).
+                    </p>
+                  </div>
+                ) : isMockStripe ? (
                   // Mock Sandbox Checkout UI
                   <MockCheckoutForm 
                     invoiceId={invoice.id} 
@@ -285,13 +298,13 @@ export default function PublicPayPage() {
                   />
                 ) : (
                   // Live/Sandbox Stripe Checkout Element
-                  isStripeLoaded ? (
+                  isStripeLoaded && clientSecret ? (
                     <Elements stripe={stripePromise} options={{ clientSecret }}>
                       <StripeCheckoutForm invoiceId={invoice.id} />
                     </Elements>
                   ) : (
                     <div className="text-center py-6 text-xs text-muted">
-                      Stripe client failed to load. Please verify publishable keys.
+                      {clientSecret ? "Stripe client failed to load. Please verify publishable keys." : "Stripe checkout could not be initialized."}
                     </div>
                   )
                 )}

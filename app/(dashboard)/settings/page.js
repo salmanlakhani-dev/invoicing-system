@@ -72,7 +72,7 @@ export default function SettingsPage() {
           setSmtp(prev => ({ 
             ...prev, 
             ...data,
-            resendApiKey: data.encryptedResendApiKey ? Buffer.from(data.encryptedResendApiKey, 'base64').toString('utf-8') : ""
+            resendApiKey: data.encryptedResendApiKey ? window.atob(data.encryptedResendApiKey) : ""
           }));
         }
 
@@ -121,7 +121,7 @@ export default function SettingsPage() {
     e.preventDefault();
     const loadId = toast.loading("Saving email configurations...");
     try {
-      const encryptedResendApiKey = smtp.resendApiKey ? Buffer.from(smtp.resendApiKey).toString('base64') : "";
+      const encryptedResendApiKey = smtp.resendApiKey ? window.btoa(smtp.resendApiKey) : "";
       await setDoc(doc(db, "settings", "smtp"), {
         encryptedResendApiKey,
         fromName: smtp.fromName || "",
