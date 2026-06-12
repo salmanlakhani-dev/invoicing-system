@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase";
 import { seedMockData } from "@/lib/seeding";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { useAuth } from "@/lib/auth-context";
 import {
   ResponsiveContainer,
   LineChart,
@@ -20,6 +21,9 @@ import {
 } from "recharts";
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const isStaff = user?.role === "staff";
+
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState("CAD");
@@ -179,27 +183,29 @@ export default function DashboardPage() {
 
         <div className="flex items-center gap-3 self-start sm:self-center">
           {/* Currency Toggle */}
-          <div className="inline-flex rounded-xl bg-white border border-border p-1 shadow-sm">
-            <button
-              onClick={() => setCurrency("USD")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                currency === "USD" ? "bg-primary text-white" : "text-muted hover:text-brandText"
-              }`}
-            >
-              USD ($)
-            </button>
-            <button
-              onClick={() => setCurrency("CAD")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                currency === "CAD" ? "bg-primary text-white" : "text-muted hover:text-brandText"
-              }`}
-            >
-              CAD ($)
-            </button>
-          </div>
+          {!isStaff && (
+            <div className="inline-flex rounded-xl bg-white border border-border p-1 shadow-sm">
+              <button
+                onClick={() => setCurrency("USD")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  currency === "USD" ? "bg-primary text-white" : "text-muted hover:text-brandText"
+                }`}
+              >
+                USD ($)
+              </button>
+              <button
+                onClick={() => setCurrency("CAD")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  currency === "CAD" ? "bg-primary text-white" : "text-muted hover:text-brandText"
+                }`}
+              >
+                CAD ($)
+              </button>
+            </div>
+          )}
 
           {/* Seed Button */}
-          {invoices.length === 0 && (
+          {!isStaff && invoices.length === 0 && (
             <button
               onClick={handleSeed}
               disabled={isSeeding}
@@ -257,135 +263,139 @@ export default function DashboardPage() {
           {invoices.length > 0 && (
             <>
               {/* Metric Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Total Revenue */}
-                <div className="glass-card rounded-2xl p-6 border border-border shadow-sm flex flex-col justify-between">
-                  <div>
-                    <span className="text-xs font-semibold text-muted uppercase tracking-wider">Total Revenue</span>
-                    <h3 className="text-2xl font-black text-brandText mt-2">{formatCurrency(totalRevenue, currency)}</h3>
+              {!isStaff && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Total Revenue */}
+                  <div className="glass-card rounded-2xl p-6 border border-border shadow-sm flex flex-col justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-muted uppercase tracking-wider">Total Revenue</span>
+                      <h3 className="text-2xl font-black text-brandText mt-2">{formatCurrency(totalRevenue, currency)}</h3>
+                    </div>
+                    <div className="mt-4 flex items-center text-xs text-success font-bold">
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>All-time paid invoices</span>
+                    </div>
                   </div>
-                  <div className="mt-4 flex items-center text-xs text-success font-bold">
-                    <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>All-time paid invoices</span>
-                  </div>
-                </div>
 
-                {/* Outstanding Amount */}
-                <div className="glass-card rounded-2xl p-6 border border-border shadow-sm flex flex-col justify-between">
-                  <div>
-                    <span className="text-xs font-semibold text-muted uppercase tracking-wider">Outstanding</span>
-                    <h3 className="text-2xl font-black text-brandText mt-2">{formatCurrency(outstandingAmount, currency)}</h3>
+                  {/* Outstanding Amount */}
+                  <div className="glass-card rounded-2xl p-6 border border-border shadow-sm flex flex-col justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-muted uppercase tracking-wider">Outstanding</span>
+                      <h3 className="text-2xl font-black text-brandText mt-2">{formatCurrency(outstandingAmount, currency)}</h3>
+                    </div>
+                    <div className="mt-4 flex items-center text-xs text-amber-600 font-bold">
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Sent / Unpaid balances</span>
+                    </div>
                   </div>
-                  <div className="mt-4 flex items-center text-xs text-amber-600 font-bold">
-                    <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>Sent / Unpaid balances</span>
-                  </div>
-                </div>
 
-                {/* Overdue Amount */}
-                <div className="glass-card rounded-2xl p-6 border border-border shadow-sm flex flex-col justify-between">
-                  <div>
-                    <span className="text-xs font-semibold text-muted uppercase tracking-wider">Overdue</span>
-                    <h3 className="text-2xl font-black text-error mt-2">{formatCurrency(overdueAmount, currency)}</h3>
+                  {/* Overdue Amount */}
+                  <div className="glass-card rounded-2xl p-6 border border-border shadow-sm flex flex-col justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-muted uppercase tracking-wider">Overdue</span>
+                      <h3 className="text-2xl font-black text-error mt-2">{formatCurrency(overdueAmount, currency)}</h3>
+                    </div>
+                    <div className="mt-4 flex items-center text-xs text-error font-bold">
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <span>Overdue past terms</span>
+                    </div>
                   </div>
-                  <div className="mt-4 flex items-center text-xs text-error font-bold">
-                    <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <span>Overdue past terms</span>
-                  </div>
-                </div>
 
-                {/* Total Invoices This Month */}
-                <div className="glass-card rounded-2xl p-6 border border-border shadow-sm flex flex-col justify-between">
-                  <div>
-                    <span className="text-xs font-semibold text-muted uppercase tracking-wider">Invoices (This Month)</span>
-                    <h3 className="text-2xl font-black text-brandText mt-2">{thisMonthInvoices}</h3>
-                  </div>
-                  <div className="mt-4 flex items-center text-xs text-primary font-bold">
-                    <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span>Created this calendar month</span>
+                  {/* Total Invoices This Month */}
+                  <div className="glass-card rounded-2xl p-6 border border-border shadow-sm flex flex-col justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-muted uppercase tracking-wider">Invoices (This Month)</span>
+                      <h3 className="text-2xl font-black text-brandText mt-2">{thisMonthInvoices}</h3>
+                    </div>
+                    <div className="mt-4 flex items-center text-xs text-primary font-bold">
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span>Created this calendar month</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Charts Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Line Chart */}
-                <div className="lg:col-span-2 glass-card rounded-2xl p-6 border border-border shadow-sm">
-                  <h3 className="text-sm font-bold text-brandText uppercase tracking-wider mb-6">Revenue Over Time (Last 6 Months)</h3>
-                  <div className="h-72 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={monthlyRevenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                        <XAxis dataKey="name" stroke="#6B7280" style={{ fontSize: "12px", fontWeight: "600" }} />
-                        <YAxis stroke="#6B7280" style={{ fontSize: "12px", fontWeight: "600" }} />
-                        <Tooltip 
-                          contentStyle={{ 
-                            background: "rgba(255, 255, 255, 0.9)", 
-                            border: "1px solid #E5E7EB", 
-                            borderRadius: "12px",
-                            boxShadow: "0 4px 20px rgba(0,0,0,0.03)"
-                          }} 
-                          formatter={(value) => [`$${value.toFixed(2)}`, "Revenue"]}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="revenue"
-                          stroke="#2A2A6C"
-                          strokeWidth={3}
-                          activeDot={{ r: 6 }}
-                          dot={{ r: 4, stroke: "#FE1D66", strokeWidth: 2, fill: "#fff" }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Donut Chart */}
-                <div className="glass-card rounded-2xl p-6 border border-border shadow-sm flex flex-col">
-                  <h3 className="text-sm font-bold text-brandText uppercase tracking-wider mb-6">Invoice Status Breakdown</h3>
-                  <div className="h-56 w-full flex-1 relative">
-                    {statusBreakdownData.length === 0 ? (
-                      <div className="flex h-full items-center justify-center text-xs text-muted font-semibold">No status records in {currency}</div>
-                    ) : (
+              {!isStaff && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Line Chart */}
+                  <div className="lg:col-span-2 glass-card rounded-2xl p-6 border border-border shadow-sm">
+                    <h3 className="text-sm font-bold text-brandText uppercase tracking-wider mb-6">Revenue Over Time (Last 6 Months)</h3>
+                    <div className="h-72 w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={statusBreakdownData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={80}
-                            paddingAngle={4}
-                            dataKey="value"
-                          >
-                            {statusBreakdownData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip formatter={(value) => [value, "Count"]} />
-                        </PieChart>
+                        <LineChart data={monthlyRevenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                          <XAxis dataKey="name" stroke="#6B7280" style={{ fontSize: "12px", fontWeight: "600" }} />
+                          <YAxis stroke="#6B7280" style={{ fontSize: "12px", fontWeight: "600" }} />
+                          <Tooltip 
+                            contentStyle={{ 
+                              background: "rgba(255, 255, 255, 0.9)", 
+                              border: "1px solid #E5E7EB", 
+                              borderRadius: "12px",
+                              boxShadow: "0 4px 20px rgba(0,0,0,0.03)"
+                            }} 
+                            formatter={(value) => [`$${value.toFixed(2)}`, "Revenue"]}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="revenue"
+                            stroke="#2A2A6C"
+                            strokeWidth={3}
+                            activeDot={{ r: 6 }}
+                            dot={{ r: 4, stroke: "#FE1D66", strokeWidth: 2, fill: "#fff" }}
+                          />
+                        </LineChart>
                       </ResponsiveContainer>
-                    )}
+                    </div>
                   </div>
-                  {/* Legend Grid */}
-                  <div className="grid grid-cols-2 gap-2 mt-4">
-                    {statusBreakdownData.map((entry) => (
-                      <div key={entry.name} className="flex items-center gap-2 text-xs font-semibold text-brandText">
-                        <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: entry.color }}></span>
-                        <span className="truncate">{entry.name} ({entry.value})</span>
-                      </div>
-                    ))}
+
+                  {/* Donut Chart */}
+                  <div className="glass-card rounded-2xl p-6 border border-border shadow-sm flex flex-col">
+                    <h3 className="text-sm font-bold text-brandText uppercase tracking-wider mb-6">Invoice Status Breakdown</h3>
+                    <div className="h-56 w-full flex-1 relative">
+                      {statusBreakdownData.length === 0 ? (
+                        <div className="flex h-full items-center justify-center text-xs text-muted font-semibold">No status records in {currency}</div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={statusBreakdownData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={4}
+                              dataKey="value"
+                            >
+                              {statusBreakdownData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value) => [value, "Count"]} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                    {/* Legend Grid */}
+                    <div className="grid grid-cols-2 gap-2 mt-4">
+                      {statusBreakdownData.map((entry) => (
+                        <div key={entry.name} className="flex items-center gap-2 text-xs font-semibold text-brandText">
+                          <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: entry.color }}></span>
+                          <span className="truncate">{entry.name} ({entry.value})</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Lists / Tables Section */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

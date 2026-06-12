@@ -4,10 +4,35 @@ import { useEffect, useState } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("company");
   const [loading, setLoading] = useState(true);
+
+  // Auth context and router
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+
+  // Role Protection: Admin Only
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user || user.role !== "admin") {
+        toast.error("Forbidden: Admin access required.");
+        router.push("/");
+      }
+    }
+  }, [user, authLoading, router]);
+
+  // Staff States
+  const [staffList, setStaffList] = useState([]);
+  const [staffEmail, setStaffEmail] = useState("");
+  const [staffPassword, setStaffPassword] = useState("");
+  const [staffName, setStaffName] = useState("");
+  const [staffRole, setStaffRole] = useState("staff");
+  const [isCreatingStaff, setIsCreatingStaff] = useState(false);
+  const [isDeletingStaff, setIsDeletingStaff] = useState(null);
 
   // Form states
   const [company, setCompany] = useState({
@@ -207,11 +232,111 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchStaffList = async () => {
+    try {
+      const token = await user?.getIdToken();
+      if (!token) return;
+      const res = await fetch("/api/staff", {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStaffList(data.users);
+      }
+    } catch (err) {
+      console.error("Error fetching staff list:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "staff" && user) {
+      fetchStaffList();
+    }
+  }, [activeTab, user]);
+
+  const handleCreateStaff = async (e) => {
+    e.preventDefault();
+    if (!staffEmail || !staffPassword || !staffName) {
+      toast.error("Please fill out all fields.");
+      return;
+    }
+    setIsCreatingStaff(true);
+    const toastId = toast.loading(`Creating ${staffRole} member...`);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/staff", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          email: staffEmail,
+          password: staffPassword,
+          name: staffName,
+          role: staffRole
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Success! Created ${staffRole} member.`, { id: toastId });
+        setStaffEmail("");
+        setStaffPassword("");
+        setStaffName("");
+        setStaffRole("staff");
+        fetchStaffList();
+      } else {
+        toast.error(data.error || "Failed to create staff member.", { id: toastId });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Network error creating staff member.", { id: toastId });
+    } finally {
+      setIsCreatingStaff(false);
+    }
+  };
+
+  const handleDeleteStaff = async (uid, name) => {
+    if (uid === user.uid) {
+      toast.error("You cannot delete your own admin account.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete ${name}? This removes their dashboard access permanently.`)) {
+      return;
+    }
+    setIsDeletingStaff(uid);
+    const toastId = toast.loading(`Deleting member...`);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`/api/staff/${uid}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Staff member deleted successfully.", { id: toastId });
+        fetchStaffList();
+      } else {
+        toast.error(data.error || "Failed to delete staff member.", { id: toastId });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Network error deleting staff member.", { id: toastId });
+    } finally {
+      setIsDeletingStaff(null);
+    }
+  };
+
   const tabs = [
     { id: "company", name: "Company Details" },
     { id: "invoice", name: "Invoice Config" },
     { id: "smtp", name: "Email Setup" },
     { id: "stripe", name: "Stripe Setup" },
+    { id: "staff", name: "Staff Management" },
   ];
 
   if (loading) {
@@ -644,6 +769,120 @@ export default function SettingsPage() {
                 </button>
               </div>
             </form>
+          )}
+
+          {/* TAB 5: STAFF MANAGEMENT */}
+          {activeTab === "staff" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                {/* Invite Form */}
+                <form onSubmit={handleCreateStaff} className="space-y-4 pr-0 md:pr-4 border-r-0 md:border-r border-border">
+                  <h3 className="text-base font-bold text-brandText uppercase tracking-wider mb-2">Create New Member</h3>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={staffName}
+                      onChange={(e) => setStaffName(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+                      placeholder="John Doe"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">Email Address</label>
+                    <input
+                      type="email"
+                      required
+                      value={staffEmail}
+                      onChange={(e) => setStaffEmail(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+                      placeholder="john@elevatetalent.co"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">Password</label>
+                    <input
+                      type="password"
+                      required
+                      value={staffPassword}
+                      onChange={(e) => setStaffPassword(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+                      placeholder="••••••••"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">Account Role</label>
+                    <select
+                      value={staffRole}
+                      onChange={(e) => setStaffRole(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all font-semibold"
+                    >
+                      <option value="staff">Staff (Generate Invoices & Add Customers only)</option>
+                      <option value="admin">Admin (Full System Privileges)</option>
+                    </select>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isCreatingStaff}
+                      className="w-full py-2.5 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
+                    >
+                      {isCreatingStaff ? "Creating Account..." : "Create Account"}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Staff List */}
+                <div className="space-y-4">
+                  <h3 className="text-base font-bold text-brandText uppercase tracking-wider">Active Staff & Admins</h3>
+                  <div className="divide-y divide-border max-h-[400px] overflow-y-auto pr-2">
+                    {staffList.map((member) => (
+                      <div key={member.uid} className="py-3.5 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-full bg-primary/5 text-primary border border-primary/15 flex items-center justify-center font-bold text-xs uppercase shrink-0">
+                            {member.name ? member.name.slice(0, 2) : "US"}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-brandText">{member.name}</p>
+                            <p className="text-[10px] text-muted">{member.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wide uppercase ${
+                            member.role === "admin" 
+                              ? "bg-purple-50 text-purple-700 border border-purple-100" 
+                              : "bg-blue-50 text-blue-700 border border-blue-100"
+                          }`}>
+                            {member.role}
+                          </span>
+                          {member.uid !== user?.uid && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteStaff(member.uid, member.name)}
+                              disabled={isDeletingStaff === member.uid}
+                              className="p-1.5 text-muted hover:text-error hover:bg-error/5 rounded-lg border border-transparent hover:border-error/10 transition-all"
+                              title="Delete Member"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            </div>
           )}
 
         </div>

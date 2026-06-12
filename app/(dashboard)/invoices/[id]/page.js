@@ -7,10 +7,13 @@ import { db } from "@/lib/firebase";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { compileInvoiceHTML } from "@/lib/pdf-template";
+import { useAuth } from "@/lib/auth-context";
 
 export default function InvoiceDetailPage() {
   const { id: invoiceId } = useParams();
   const router = useRouter();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const [invoice, setInvoice] = useState(null);
   const [customer, setCustomer] = useState(null);
@@ -545,7 +548,7 @@ export default function InvoiceDetailPage() {
             </button>
 
             {/* Payment triggers */}
-            {!isPaid && (
+            {isAdmin && !isPaid && (
               <>
                 <button
                   onClick={() => setShowPaymentModal(true)}
@@ -572,14 +575,16 @@ export default function InvoiceDetailPage() {
             )}
 
             {/* Void & Duplicate */}
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
-              <button
-                onClick={handleVoid}
-                disabled={invoice.status === "Void"}
-                className="py-2.5 border border-border hover:bg-gray-50 text-muted hover:text-brandText text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-40"
-              >
-                Void
-              </button>
+            <div className={`grid ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'} gap-2 pt-2 border-t border-border`}>
+              {isAdmin && (
+                <button
+                  onClick={handleVoid}
+                  disabled={invoice.status === "Void"}
+                  className="py-2.5 border border-border hover:bg-gray-50 text-muted hover:text-brandText text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-40"
+                >
+                  Void
+                </button>
+              )}
               <button
                 onClick={handleDuplicate}
                 className="py-2.5 border border-border hover:bg-gray-50 text-muted hover:text-brandText text-xs font-bold rounded-xl shadow-sm transition-all"

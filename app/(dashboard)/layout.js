@@ -12,6 +12,8 @@ export default function DashboardLayout({ children }) {
   const { logout, user } = useAuth();
   const router = useRouter();
 
+  const isStaff = user?.role === "staff";
+  
   const menuItems = [
     {
       name: "Dashboard",
@@ -40,25 +42,27 @@ export default function DashboardLayout({ children }) {
         </svg>
       )
     },
-    {
-      name: "Products",
-      path: "/products",
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-        </svg>
-      )
-    },
-    {
-      name: "Settings",
-      path: "/settings",
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      )
-    }
+    ...(!isStaff ? [
+      {
+        name: "Products",
+        path: "/products",
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+        )
+      },
+      {
+        name: "Settings",
+        path: "/settings",
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        )
+      }
+    ] : [])
   ];
 
   const handleLogout = async () => {
@@ -116,11 +120,11 @@ export default function DashboardLayout({ children }) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 overflow-hidden">
               <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary text-sm shrink-0">
-                {user?.email ? user.email.slice(0, 2).toUpperCase() : "OW"}
+                {user?.displayName ? user.displayName.slice(0, 2).toUpperCase() : (user?.email ? user.email.slice(0, 2).toUpperCase() : "US")}
               </div>
               <div className="overflow-hidden">
-                <p className="text-xs font-bold text-brandText truncate">Business Owner</p>
-                <p className="text-[10px] text-muted truncate">{user?.email}</p>
+                <p className="text-xs font-bold text-brandText truncate">{user?.displayName || "Invoice User"}</p>
+                <p className="text-[10px] text-muted truncate capitalize">{user?.role || "staff"}</p>
               </div>
             </div>
             <button
@@ -166,7 +170,7 @@ export default function DashboardLayout({ children }) {
               </span>
             </div>
             <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary text-sm">
-              {user?.email ? user.email.slice(0, 2).toUpperCase() : "OW"}
+              {user?.displayName ? user.displayName.slice(0, 2).toUpperCase() : (user?.email ? user.email.slice(0, 2).toUpperCase() : "US")}
             </div>
           </div>
         </header>
@@ -227,11 +231,11 @@ export default function DashboardLayout({ children }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 overflow-hidden">
                 <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary text-sm shrink-0">
-                  {user?.email ? user.email.slice(0, 2).toUpperCase() : "OW"}
+                  {user?.displayName ? user.displayName.slice(0, 2).toUpperCase() : (user?.email ? user.email.slice(0, 2).toUpperCase() : "US")}
                 </div>
                 <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-brandText truncate">Business Owner</p>
-                  <p className="text-[10px] text-muted truncate">{user?.email}</p>
+                  <p className="text-xs font-bold text-brandText truncate">{user?.displayName || "Invoice User"}</p>
+                  <p className="text-[10px] text-muted truncate capitalize">{user?.role || "staff"}</p>
                 </div>
               </div>
               <button
