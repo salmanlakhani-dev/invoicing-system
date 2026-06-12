@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendEmail } from "@/lib/email";
-import { compileInvoiceHTML } from "@/lib/pdf-template";
-import puppeteer from "puppeteer";
 import admin from "firebase-admin";
 
 /**
- * Renders the invoice PDF buffer, uploads it to Storage,
- * and delivers the PDF as an email attachment via Nodemailer SMTP.
+ * Delivers the invoice payment link via Resend.
  */
 export async function POST(req) {
   try {
@@ -41,34 +38,11 @@ export async function POST(req) {
     const smtpSnap = await adminDb.collection("settings").doc("smtp").get();
     if (!smtpSnap.exists) {
       return NextResponse.json(
-        { success: false, error: "SMTP mail configurations are missing. Setup Email in Settings first." },
+        { success: false, error: "Email configurations are missing. Setup Email in Settings first." },
         { status: 400 }
       );
     }
     const smtpConfig = smtpSnap.data();
-
-    // 5. Fetch Invoicing config (for tax labels/rates)
-    const configSnap = await adminDb.collection("settings").doc("invoiceConfig").get();
-    const config = configSnap.exists ? configSnap.data() : {};
-
-    // 6. Compile PDF HTML & Render to Buffer via Puppeteer
-    console.log("Rendering PDF buffer inline for email attachment...");
-    const htmlContent = compileInvoiceHTML({ invoice, company, customer, config });
-    
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-    });
-    const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      margin: { top: "0.4in", bottom: "0.4in", left: "0.4in", right: "0.4in" }
-    });
-    await browser.close();
-
-    // 7. PDF buffer generated inline. Firebase Storage upload bypassed.
 
     const formattedAmount = new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -116,7 +90,7 @@ export async function POST(req) {
               </a>
             </p>
             
-            <p>We have attached a printable PDF copy of the invoice to this email for your records.</p>
+            <p>You can view the invoice online and download a PDF copy for your records using the link above.</p>
             <p>If you have any questions, please reply directly to this email.</p>
           </div>
           <div style="border-top: 1px solid #E5E7EB; padding-top: 15px; font-size: 11px; color: #6B7280; text-align: center;">
@@ -130,13 +104,6 @@ export async function POST(req) {
       to: customer.email,
       subject,
       html,
-      attachments: [
-        {
-          filename: `${invoice.invoiceNumber}.pdf`,
-          content: pdfBuffer,
-          contentType: "application/pdf"
-        }
-      ],
       smtpConfig,
       company,
     });
@@ -150,8 +117,6 @@ export async function POST(req) {
       updatePayload.status = "Sent";
     }
     await invoiceRef.update(updatePayload);
-
-
 
     return NextResponse.json({
       success: true,

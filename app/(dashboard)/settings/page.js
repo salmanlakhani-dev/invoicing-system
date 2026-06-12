@@ -38,14 +38,8 @@ export default function SettingsPage() {
   });
 
   const [smtp, setSmtp] = useState({
-    provider: "smtp", // "smtp" | "resend"
     resendApiKey: "",
     encryptedResendApiKey: "",
-    host: "",
-    port: 2525,
-    username: "",
-    password: "", // entered by user, will be encrypted to base64
-    encryptedPassword: "", // stored in DB
     fromName: "",
     fromEmail: "",
   });
@@ -78,7 +72,6 @@ export default function SettingsPage() {
           setSmtp(prev => ({ 
             ...prev, 
             ...data,
-            password: data.encryptedPassword ? Buffer.from(data.encryptedPassword, 'base64').toString('utf-8') : "",
             resendApiKey: data.encryptedResendApiKey ? Buffer.from(data.encryptedResendApiKey, 'base64').toString('utf-8') : ""
           }));
         }
@@ -128,15 +121,9 @@ export default function SettingsPage() {
     e.preventDefault();
     const loadId = toast.loading("Saving email configurations...");
     try {
-      const encryptedPassword = smtp.password ? Buffer.from(smtp.password).toString('base64') : "";
       const encryptedResendApiKey = smtp.resendApiKey ? Buffer.from(smtp.resendApiKey).toString('base64') : "";
       await setDoc(doc(db, "settings", "smtp"), {
-        provider: smtp.provider || "smtp",
         encryptedResendApiKey,
-        host: smtp.host || "",
-        port: parseInt(smtp.port, 10) || 2525,
-        username: smtp.username || "",
-        encryptedPassword,
         fromName: smtp.fromName || "",
         fromEmail: smtp.fromEmail || ""
       });
@@ -174,12 +161,8 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           smtpConfig: {
-            provider: smtp.provider || "smtp",
+            provider: "resend",
             resendApiKey: smtp.resendApiKey,
-            host: smtp.host,
-            port: smtp.port,
-            username: smtp.username,
-            password: smtp.password,
             fromName: smtp.fromName,
             fromEmail: smtp.fromEmail,
           },
@@ -194,7 +177,7 @@ export default function SettingsPage() {
         toast.error(data.error || "Failed to send email.", { id: toastId });
       }
     } catch (err) {
-      toast.error("Network error testing SMTP config.", { id: toastId });
+      toast.error("Network error testing email config.", { id: toastId });
     } finally {
       setIsTestingEmail(false);
     }
@@ -525,11 +508,11 @@ export default function SettingsPage() {
             </form>
           )}
 
-          {/* TAB 3: EMAIL CONFIGURATION (SMTP OR RESEND) */}
+          {/* TAB 3: EMAIL CONFIGURATION (RESEND) */}
           {activeTab === "smtp" && (
             <form onSubmit={handleSaveSmtp} className="space-y-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-brandText uppercase tracking-wider">Email Configuration</h3>
+                <h3 className="text-base font-bold text-brandText uppercase tracking-wider">Resend Email Setup</h3>
                 <button
                   type="button"
                   onClick={() => setShowEmailModal(true)}
@@ -541,77 +524,16 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">Email Service Provider</label>
-                  <select
-                    value={smtp.provider}
-                    onChange={(e) => setSmtp({ ...smtp, provider: e.target.value })}
-                    className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all font-semibold"
-                  >
-                    <option value="smtp">Custom SMTP Server (Mailtrap, SendGrid, etc.)</option>
-                    <option value="resend">Resend (Modern developer email API)</option>
-                  </select>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">Resend API Key</label>
+                  <input
+                    type="password"
+                    required
+                    value={smtp.resendApiKey}
+                    onChange={(e) => setSmtp({ ...smtp, resendApiKey: e.target.value })}
+                    className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+                    placeholder="re_••••••••••••••••••••••••"
+                  />
                 </div>
-
-                {smtp.provider === "resend" ? (
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">Resend API Key</label>
-                    <input
-                      type="password"
-                      required
-                      value={smtp.resendApiKey}
-                      onChange={(e) => setSmtp({ ...smtp, resendApiKey: e.target.value })}
-                      className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
-                      placeholder="re_••••••••••••••••••••••••"
-                    />
-                  </div>
-                ) : (
-                  <>
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">SMTP Host</label>
-                      <input
-                        type="text"
-                        required
-                        value={smtp.host}
-                        onChange={(e) => setSmtp({ ...smtp, host: e.target.value })}
-                        className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
-                        placeholder="sandbox.smtp.mailtrap.io"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">SMTP Port</label>
-                      <input
-                        type="number"
-                        required
-                        value={smtp.port}
-                        onChange={(e) => setSmtp({ ...smtp, port: e.target.value })}
-                        className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
-                        placeholder="2525"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">SMTP Username</label>
-                      <input
-                        type="text"
-                        required
-                        value={smtp.username}
-                        onChange={(e) => setSmtp({ ...smtp, username: e.target.value })}
-                        className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
-                        placeholder="smtp_user_placeholder"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">SMTP Password</label>
-                      <input
-                        type="password"
-                        required
-                        value={smtp.password}
-                        onChange={(e) => setSmtp({ ...smtp, password: e.target.value })}
-                        className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
-                        placeholder="••••••••"
-                      />
-                    </div>
-                  </>
-                )}
 
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">Sender Name ("From")</label>

@@ -255,7 +255,7 @@ export default function InvoiceDetailPage() {
   };
 
   const handleSendEmail = async () => {
-    const toastId = toast.loading("Transmitting invoice email via SMTP...");
+    const toastId = toast.loading("Transmitting invoice email...");
     try {
       const res = await fetch("/api/invoices/send-email", {
         method: "POST",
