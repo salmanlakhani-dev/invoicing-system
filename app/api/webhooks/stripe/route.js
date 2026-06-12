@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { createTransporter } from "@/lib/nodemailer";
+import { sendEmail } from "@/lib/email";
 import Stripe from "stripe";
 
 /**
@@ -228,17 +228,11 @@ async function sendReceiptEmail(invoiceId, invoice, paidAt, paymentIntentId) {
 
   // 3. Fetch SMTP settings
   const smtpSnap = await adminDb.collection("settings").doc("smtp").get();
-  if (!smtpSnap.exists) {
-    console.warn("[Receipt Email] SMTP settings are not configured. Skipping confirmation email.");
+  const smtpConfig = smtpSnap.exists ? smtpSnap.data() : {};
+  if (!smtpSnap.exists && !process.env.RESEND_API_KEY) {
+    console.warn("[Receipt Email] Email settings are not configured. Skipping confirmation email.");
     return;
   }
-  const smtpConfig = smtpSnap.data();
-
-  // 4. Configure SMTP transporter
-  const transporter = createTransporter(smtpConfig);
-
-  const fromName = smtpConfig.fromName || company.companyName || "Elevate TM Invoicing";
-  const fromEmail = smtpConfig.fromEmail || company.email || "no-reply@elevatetm.com";
 
   const formattedAmount = new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -255,11 +249,8 @@ async function sendReceiptEmail(invoiceId, invoice, paidAt, paymentIntentId) {
 
   const payUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/pay/${invoice.token}`;
 
-  const mailOptions = {
-    from: `"${fromName}" <${fromEmail}>`,
-    to: customer.email,
-    subject: `Payment Receipt: Invoice ${invoice.invoiceNumber} paid successfully`,
-    html: `
+  const subject = `Payment Receipt: Invoice ${invoice.invoiceNumber} paid successfully`;
+  const html = `
       <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #E5E7EB; border-radius: 16px; background-color: #FFFFFF; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
         <div style="background-color: #10B981; color: #FFFFFF; padding: 32px; border-radius: 12px; text-align: center;">
           <div style="display: inline-block; background-color: rgba(255,255,255,0.2); padding: 12px; border-radius: 50%; margin-bottom: 16px;">
@@ -317,10 +308,15 @@ async function sendReceiptEmail(invoiceId, invoice, paidAt, paymentIntentId) {
           For billing support or questions, please reply directly to this email.
         </div>
       </div>
-    `,
-  };
+    `;
 
   console.log(`[Receipt Email] Sending confirmation to ${customer.email}...`);
-  await transporter.sendMail(mailOptions);
+  await sendEmail({
+    to: customer.email,
+    subject,
+    html,
+    smtpConfig,
+    company,
+  });
   console.log("[Receipt Email] Sent successfully.");
 }

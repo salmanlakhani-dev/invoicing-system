@@ -35,8 +35,11 @@ export async function POST(req) {
     const companySnap = await adminDb.collection("settings").doc("company").get();
     const company = companySnap.exists ? companySnap.data() : {};
 
+    const configSnap = await adminDb.collection("settings").doc("invoiceConfig").get();
+    const config = configSnap.exists ? configSnap.data() : {};
+
     // 4. Compile HTML String
-    const htmlContent = compileInvoiceHTML({ invoice, company, customer });
+    const htmlContent = compileInvoiceHTML({ invoice, company, customer, config });
 
     // 5. Spin up Puppeteer headless browser to render PDF
     console.log("Launching Puppeteer browser...");

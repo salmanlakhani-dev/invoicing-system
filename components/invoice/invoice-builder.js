@@ -30,6 +30,7 @@ export default function InvoiceBuilder({ invoiceId }) {
   // System settings/catalogs
   const [company, setCompany] = useState({});
   const [config, setConfig] = useState({});
+  const [emailConfig, setEmailConfig] = useState({});
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
 
@@ -68,6 +69,9 @@ export default function InvoiceBuilder({ invoiceId }) {
         const confSnap = await getDoc(doc(db, "settings", "invoiceConfig"));
         const configData = confSnap.exists() ? confSnap.data() : {};
         setConfig(configData);
+
+        const emailSnap = await getDoc(doc(db, "settings", "smtp"));
+        if (emailSnap.exists()) setEmailConfig(emailSnap.data());
 
         // 2. Load Customers & Products list
         const custSnaps = await getDocs(collection(db, "customers"));
@@ -214,6 +218,10 @@ export default function InvoiceBuilder({ invoiceId }) {
 
   // Submit Handler
   const handleSave = async (status) => {
+    if (!emailConfig.encryptedResendApiKey) {
+      toast.error("Email setup is incomplete. Please go to Settings > Email Setup and configure your Resend API Key first.");
+      return;
+    }
     if (!customerId) {
       toast.error("Please select a customer.");
       return;

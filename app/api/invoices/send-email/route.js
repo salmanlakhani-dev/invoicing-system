@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { createTransporter } from "@/lib/nodemailer";
+import { sendEmail } from "@/lib/email";
 import { compileInvoiceHTML } from "@/lib/pdf-template";
 import puppeteer from "puppeteer";
 import admin from "firebase-admin";
@@ -53,7 +53,7 @@ export async function POST(req) {
 
     // 6. Compile PDF HTML & Render to Buffer via Puppeteer
     console.log("Rendering PDF buffer inline for email attachment...");
-    const htmlContent = compileInvoiceHTML({ invoice, company, customer });
+    const htmlContent = compileInvoiceHTML({ invoice, company, customer, config });
     
     const browser = await puppeteer.launch({
       headless: true,
@@ -70,11 +70,6 @@ export async function POST(req) {
 
     // 7. PDF buffer generated inline. Firebase Storage upload bypassed.
 
-    // 8. Configure SMTP transporter
-    const transporter = createTransporter(smtpConfig);
-
-    const fromName = smtpConfig.fromName || company.companyName || "Elevate TM Invoicing";
-    const fromEmail = smtpConfig.fromEmail || company.email || "no-reply@elevatetm.com";
     const formattedAmount = new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: invoice.currency || "CAD",
@@ -87,11 +82,8 @@ export async function POST(req) {
 
     const payUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/pay/${invoice.token}`;
 
-    const mailOptions = {
-      from: `"${fromName}" <${fromEmail}>`,
-      to: customer.email,
-      subject: `Invoice ${invoice.invoiceNumber} from ${company.companyName || "Elevate TM Invoicing"} — ${formattedAmount} Due ${formattedDueDate}`,
-      html: `
+    const subject = `Invoice ${invoice.invoiceNumber} from ${company.companyName || "Elevate TM Invoicing"} — ${formattedAmount} Due ${formattedDueDate}`;
+    const html = `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #E5E7EB; border-radius: 12px; background-color: #FFFFFF;">
           <div style="background-color: #2A2A6C; color: #FFFFFF; padding: 25px; border-radius: 8px 8px 0 0; text-align: center;">
             <h1 style="margin: 0; font-size: 22px;">Invoice ${invoice.invoiceNumber}</h1>
@@ -131,18 +123,23 @@ export async function POST(req) {
             Sent securely by Elevate TM Invoicing on behalf of ${company.companyName || "Elevate TM Invoicing"}.
           </div>
         </div>
-      `,
+      `;
+
+    console.log("Sending email...");
+    await sendEmail({
+      to: customer.email,
+      subject,
+      html,
       attachments: [
         {
           filename: `${invoice.invoiceNumber}.pdf`,
           content: pdfBuffer,
           contentType: "application/pdf"
         }
-      ]
-    };
-
-    console.log("Sending email...");
-    await transporter.sendMail(mailOptions);
+      ],
+      smtpConfig,
+      company,
+    });
     console.log("Email sent successfully.");
 
     // 9. Update Invoice Status
