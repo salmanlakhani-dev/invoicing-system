@@ -264,6 +264,8 @@ export default function InvoiceBuilder({ invoiceId }) {
       // Clean undefined keys
       Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
 
+      let savedInvoiceId = invoiceId;
+
       if (invoiceId) {
         // EDIT MODE
         await updateDoc(doc(db, "invoices", invoiceId), payload);
@@ -271,6 +273,7 @@ export default function InvoiceBuilder({ invoiceId }) {
       } else {
         // NEW MODE
         const newRef = doc(collection(db, "invoices"));
+        savedInvoiceId = newRef.id;
         await setDoc(newRef, payload);
 
         // Increment settings counter
@@ -278,6 +281,27 @@ export default function InvoiceBuilder({ invoiceId }) {
         await updateDoc(doc(db, "settings", "invoiceConfig"), { currentCounter: nextCounter });
 
         toast.success("Invoice created successfully!", { id: toastId });
+      }
+
+      // Automatically send the email if status is "Sent" (Save & Send clicked)
+      if (status === "Sent") {
+        toast.loading("Delivering invoice email to customer...", { id: toastId });
+        try {
+          const emailRes = await fetch("/api/invoices/send-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ invoiceId: savedInvoiceId })
+          });
+          const emailData = await emailRes.json();
+          if (emailData.success) {
+            toast.success("Invoice saved and email sent successfully!", { id: toastId });
+          } else {
+            toast.error(`Invoice saved, but email failed: ${emailData.error || "Unknown error"}`, { id: toastId, duration: 6000 });
+          }
+        } catch (emailErr) {
+          console.error("Auto email sending error:", emailErr);
+          toast.error("Invoice saved, but network error sending email.", { id: toastId, duration: 6000 });
+        }
       }
 
       router.push("/invoices");
