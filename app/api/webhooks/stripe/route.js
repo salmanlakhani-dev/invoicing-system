@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, sendPaymentSuccessNotifications } from "@/lib/email";
 import Stripe from "stripe";
 
 /**
@@ -82,11 +82,15 @@ export async function POST(req) {
 
             console.log(`[Stripe Webhook] Invoice ${invoiceId} marked as Paid in Firestore.`);
 
-            // 3. Send email receipt to customer in background (or log failure if SMTP settings not configured)
+            // 3. Send payment success notification emails to customer and admin
             try {
-              await sendReceiptEmail(invoiceId, invoiceData, paidAt, paymentIntent.id);
+              await sendPaymentSuccessNotifications({
+                invoiceId,
+                paidAt,
+                paymentIntentId: paymentIntent.id
+              });
             } catch (emailErr) {
-              console.error("[Stripe Webhook] Error sending receipt email:", emailErr);
+              console.error("[Stripe Webhook] Error sending payment success emails:", emailErr);
             }
           } else {
             console.log(`[Stripe Webhook] Invoice ${invoiceId} was already marked Paid.`);
@@ -210,113 +214,4 @@ export async function POST(req) {
   }
 }
 
-/**
- * Delivers a payment receipt confirmation email to the client using SMTP configurations.
- */
-async function sendReceiptEmail(invoiceId, invoice, paidAt, paymentIntentId) {
-  // 1. Fetch Customer Details
-  const customerSnap = await adminDb.collection("customers").doc(invoice.customerId).get();
-  if (!customerSnap.exists) {
-    console.warn(`[Receipt Email] Customer ID ${invoice.customerId} not found.`);
-    return;
-  }
-  const customer = customerSnap.data();
 
-  // 2. Fetch Company details
-  const companySnap = await adminDb.collection("settings").doc("company").get();
-  const company = companySnap.exists ? companySnap.data() : {};
-
-  // 3. Fetch SMTP settings
-  const smtpSnap = await adminDb.collection("settings").doc("smtp").get();
-  const smtpConfig = smtpSnap.exists ? smtpSnap.data() : {};
-  if (!smtpSnap.exists && !process.env.RESEND_API_KEY) {
-    console.warn("[Receipt Email] Email settings are not configured. Skipping confirmation email.");
-    return;
-  }
-
-  const formattedAmount = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: invoice.currency || "CAD",
-  }).format(invoice.total) + ` ${invoice.currency || "CAD"}`;
-
-  const formattedPaidDate = new Date(paidAt).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  const payUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/pay/${invoice.token}`;
-
-  const subject = `Payment Receipt: Invoice ${invoice.invoiceNumber} paid successfully`;
-  const html = `
-      <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #E5E7EB; border-radius: 16px; background-color: #FFFFFF; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-        <div style="background-color: #10B981; color: #FFFFFF; padding: 32px; border-radius: 12px; text-align: center;">
-          <div style="display: inline-block; background-color: rgba(255,255,255,0.2); padding: 12px; border-radius: 50%; margin-bottom: 16px;">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color: #FFFFFF; vertical-align: middle;">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-          </div>
-          <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em;">Payment Received</h1>
-          <p style="margin: 8px 0 0 0; font-size: 14px; font-weight: 500; opacity: 0.9;">Thank you! Your payment is processed.</p>
-        </div>
-
-        <div style="padding: 24px 8px; color: #1F2937; line-height: 1.6; font-size: 14px;">
-          <p style="font-weight: 600; font-size: 16px; margin-top: 0;">Hi ${customer.firstName} ${customer.lastName},</p>
-          <p>This email confirms that we have successfully received your payment of <strong style="color: #10B981; font-size: 16px;">${formattedAmount}</strong> for invoice <strong>${invoice.invoiceNumber}</strong>.</p>
-          
-          <div style="background-color: #F9FAFB; padding: 20px; border-radius: 12px; margin: 24px 0; border: 1px solid #F3F4F6;">
-            <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 12px; font-weight: 700; text-transform: uppercase; color: #6B7280; letter-spacing: 0.05em;">Transaction Information</h3>
-            <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
-              <tr>
-                <td style="color: #6B7280; padding: 6px 0;">Invoice Reference:</td>
-                <td style="font-weight: 600; text-align: right; color: #1F2937;">${invoice.invoiceNumber}</td>
-              </tr>
-              <tr>
-                <td style="color: #6B7280; padding: 6px 0;">Paid Amount:</td>
-                <td style="font-weight: 700; text-align: right; color: #10B981;">${formattedAmount}</td>
-              </tr>
-              <tr>
-                <td style="color: #6B7280; padding: 6px 0;">Date Paid:</td>
-                <td style="font-weight: 600; text-align: right; color: #1F2937;">${formattedPaidDate}</td>
-              </tr>
-              <tr>
-                <td style="color: #6B7280; padding: 6px 0;">Payment Provider:</td>
-                <td style="font-weight: 600; text-align: right; color: #1F2937;">Stripe</td>
-              </tr>
-              ${paymentIntentId ? `
-              <tr>
-                <td style="color: #6B7280; padding: 6px 0;">Transaction ID:</td>
-                <td style="font-family: monospace; font-size: 11px; text-align: right; color: #4B5563;">${paymentIntentId}</td>
-              </tr>
-              ` : ''}
-            </table>
-          </div>
-          
-          <p style="text-align: center; margin: 32px 0;">
-            <a href="${payUrl}" style="background-color: #FE1D66; color: #FFFFFF; text-decoration: none; padding: 14px 28px; border-radius: 12px; font-weight: bold; display: inline-block; box-shadow: 0 4px 12px rgba(254, 29, 102, 0.2); transition: all 0.2s;">
-              View Paid Invoice / Download PDF Receipt
-            </a>
-          </p>
-          
-          <p style="color: #6B7280; font-size: 13px;">If you require a copy of the invoice for tax purposes, you can download a PDF statement directly using the button above.</p>
-        </div>
-
-        <div style="border-top: 1px solid #F3F4F6; padding-top: 20px; font-size: 11px; color: #9CA3AF; text-align: center; line-height: 1.4;">
-          Sent securely by Elevate TM Invoicing on behalf of <strong>${company.companyName || "Elevate TM Invoicing"}</strong>.<br/>
-          For billing support or questions, please reply directly to this email.
-        </div>
-      </div>
-    `;
-
-  console.log(`[Receipt Email] Sending confirmation to ${customer.email}...`);
-  await sendEmail({
-    to: customer.email,
-    subject,
-    html,
-    smtpConfig,
-    company,
-  });
-  console.log("[Receipt Email] Sent successfully.");
-}

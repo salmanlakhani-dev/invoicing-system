@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import Stripe from "stripe";
+import { sendPaymentSuccessNotifications } from "@/lib/email";
 
 /**
  * Executes an off-session credit card charge using a saved Stripe PaymentMethod.
@@ -99,6 +100,17 @@ export async function POST(req) {
       status: "Paid",
       paidAt,
     });
+
+    // Send payment success notifications to customer & admin
+    try {
+      await sendPaymentSuccessNotifications({
+        invoiceId,
+        paidAt,
+        paymentIntentId: stripePaymentIntentId
+      });
+    } catch (emailErr) {
+      console.error("[Charge Card] Error sending success notifications:", emailErr);
+    }
 
     return NextResponse.json({
       success: true,
