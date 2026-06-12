@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import toast from "react-hot-toast";
+import { compileInvoiceHTML } from "@/lib/pdf-template";
 
 let stripePromise = null;
 
@@ -75,7 +76,7 @@ export default function PublicPayPage() {
     );
   }
 
-  const { invoice, customer, company, clientSecret, stripeError } = data;
+  const { invoice, customer, company, config, clientSecret, stripeError } = data;
   const balanceDue = invoice.total - (invoice.amountPaid || 0);
   const isPaid = invoice.status === "Paid" || balanceDue <= 0;
   const isMockStripe = clientSecret && clientSecret.startsWith("pi_mock_secret_");
@@ -96,31 +97,39 @@ export default function PublicPayPage() {
     });
   };
 
-  const handleDownloadPDF = async () => {
-    const toastId = toast.loading("Generating printable invoice PDF...");
+  const handleDownloadPDF = () => {
+    const toastId = toast.loading("Preparing printable invoice PDF...");
     try {
-      const res = await fetch("/api/invoices/generate-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoiceId: invoice.id })
-      });
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${invoice?.invoiceNumber || "invoice"}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-        toast.success("PDF ready!", { id: toastId });
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || "Failed to download PDF.", { id: toastId });
-      }
+      const html = compileInvoiceHTML({ invoice, company, customer, config });
+
+      // Create a hidden iframe
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentWindow.document;
+      doc.open();
+      doc.write(html);
+      doc.close();
+
+      // Wait for resources/fonts to render
+      iframe.contentWindow.focus();
+      setTimeout(() => {
+        iframe.contentWindow.print();
+        toast.success("PDF print dialog opened!", { id: toastId });
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1500);
+      }, 800);
     } catch (err) {
-      toast.error("Network error rendering PDF.", { id: toastId });
+      console.error(err);
+      toast.error("Failed to generate PDF.", { id: toastId });
     }
   };
 

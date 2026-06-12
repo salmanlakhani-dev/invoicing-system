@@ -6,6 +6,7 @@ import { doc, getDoc, collection, onSnapshot, query, where, addDoc, updateDoc, d
 import { db } from "@/lib/firebase";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { compileInvoiceHTML } from "@/lib/pdf-template";
 
 export default function InvoiceDetailPage() {
   const { id: invoiceId } = useParams();
@@ -229,28 +230,43 @@ export default function InvoiceDetailPage() {
   const handleDownloadPDF = async () => {
     const toastId = toast.loading("Generating A4 Invoice PDF. Please wait...");
     try {
-      const res = await fetch("/api/invoices/generate-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoiceId })
-      });
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${invoice?.invoiceNumber || "invoice"}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-        toast.success("PDF downloaded successfully!", { id: toastId });
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || "Failed to generate PDF.", { id: toastId });
-      }
+      // Load settings required for compileInvoiceHTML on the client side
+      const compSnap = await getDoc(doc(db, "settings", "company"));
+      const company = compSnap.exists() ? compSnap.data() : {};
+
+      const confSnap = await getDoc(doc(db, "settings", "invoiceConfig"));
+      const config = confSnap.exists() ? confSnap.data() : {};
+
+      const html = compileInvoiceHTML({ invoice, company, customer, config });
+
+      // Create a hidden iframe
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      document.body.appendChild(iframe);
+
+      const docRef = iframe.contentWindow.document;
+      docRef.open();
+      docRef.write(html);
+      docRef.close();
+
+      // Wait for resources/fonts to render
+      iframe.contentWindow.focus();
+      setTimeout(() => {
+        iframe.contentWindow.print();
+        toast.success("PDF print dialog opened!", { id: toastId });
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1500);
+      }, 800);
     } catch (err) {
-      toast.error("Network error generating invoice PDF.", { id: toastId });
+      console.error(err);
+      toast.error("Failed to generate PDF.", { id: toastId });
     }
   };
 

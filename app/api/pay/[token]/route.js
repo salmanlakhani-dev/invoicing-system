@@ -37,6 +37,10 @@ export async function GET(req, { params }) {
     const companySnap = await adminDb.collection("settings").doc("company").get();
     const company = companySnap.exists ? companySnap.data() : {};
 
+    // Fetch Invoice Config settings
+    const configSnap = await adminDb.collection("settings").doc("invoiceConfig").get();
+    const config = configSnap.exists ? configSnap.data() : {};
+
     // 4. Update viewedAt timestamp and status (Sent -> Viewed)
     const updateData = {};
     if (!invoice.viewedAt) {
@@ -104,6 +108,7 @@ export async function GET(req, { params }) {
       invoice: { id: invoiceId, ...invoice },
       customer,
       company,
+      config,
       clientSecret,
       publishableKey,
       stripeError
