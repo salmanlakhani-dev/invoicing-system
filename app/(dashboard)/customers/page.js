@@ -5,6 +5,7 @@ import { collection, onSnapshot, query, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import ImportGhlModal from "@/components/ImportGhlModal";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([]);
@@ -12,6 +13,7 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // New customer form state
@@ -184,15 +186,27 @@ export default function CustomersPage() {
           <p className="text-sm text-muted">Manage your client contacts, invoice balances, and saved payment profiles.</p>
         </div>
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all self-start sm:self-center"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-          </svg>
-          Add Customer
-        </button>
+        <div className="flex items-center gap-3 self-start sm:self-center">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-border hover:border-primary text-brandText text-xs font-bold rounded-xl shadow-xs transition-all"
+          >
+            <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Import GHL Contacts
+          </button>
+
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+            Add Customer
+          </button>
+        </div>
       </div>
 
       {/* Filter and Table Grid */}
@@ -494,6 +508,16 @@ export default function CustomersPage() {
           </div>
         </div>
       )}
+
+      {/* IMPORT GHL MODAL */}
+      <ImportGhlModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        existingCustomers={customers}
+        onImportComplete={() => {
+          // React hook listener handles onSnapshot, so local state updates automatically
+        }}
+      />
     </div>
   );
 }
