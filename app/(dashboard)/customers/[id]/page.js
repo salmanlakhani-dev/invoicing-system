@@ -23,6 +23,25 @@ export default function CustomerDetailPage() {
   const [clientSecret, setClientSecret] = useState("");
   const [isCreatingSecret, setIsCreatingSecret] = useState(false);
 
+  // Edit Customer Modal controls
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editForm, setEditForm] = useState({
+    firstName: "",
+    lastName: "",
+    companyName: "",
+    email: "",
+    phone: "",
+    billingAddressLine1: "",
+    billingAddressLine2: "",
+    city: "",
+    stateProvince: "",
+    postalCode: "",
+    country: "",
+    currencyPreference: "CAD",
+    notes: "",
+  });
+
   useEffect(() => {
     if (!customerId) return;
 
@@ -69,6 +88,97 @@ export default function CustomerDetailPage() {
       unsubCards();
     };
   }, [customerId, router]);
+
+  const handleOpenEditModal = () => {
+    setEditForm({
+      firstName: customer.firstName || "",
+      lastName: customer.lastName || "",
+      companyName: customer.companyName || "",
+      email: customer.email || "",
+      phone: customer.phone || "",
+      billingAddressLine1: customer.billingAddressLine1 || "",
+      billingAddressLine2: customer.billingAddressLine2 || "",
+      city: customer.city || "",
+      stateProvince: customer.stateProvince || "",
+      postalCode: customer.postalCode || "",
+      country: customer.country || "",
+      currencyPreference: customer.currencyPreference || "CAD",
+      notes: customer.notes || "",
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editForm.email || !editForm.firstName || !editForm.lastName) {
+      toast.error("Please fill in all required fields (First Name, Last Name, Email).");
+      return;
+    }
+
+    setIsUpdating(true);
+    const toastId = toast.loading("Updating customer profile...");
+
+    try {
+      // 1. Update in Stripe via API
+      const address = {
+        line1: editForm.billingAddressLine1,
+        line2: editForm.billingAddressLine2,
+        city: editForm.city,
+        state: editForm.stateProvince,
+        postalCode: editForm.postalCode,
+        country: editForm.country,
+      };
+
+      const stripeRes = await fetch("/api/customers/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stripeCustomerId: customer.stripeCustomerId,
+          name: `${editForm.firstName} ${editForm.lastName}`,
+          email: editForm.email,
+          phone: editForm.phone,
+          companyName: editForm.companyName,
+          address,
+        }),
+      });
+
+      const stripeData = await stripeRes.json();
+      if (!stripeData.success) {
+        throw new Error(stripeData.error || "Failed to update Stripe customer profile.");
+      }
+
+      // 2. Update in Firestore
+      const customerRef = doc(db, "customers", customerId);
+      await updateDoc(customerRef, {
+        firstName: editForm.firstName,
+        lastName: editForm.lastName,
+        companyName: editForm.companyName,
+        email: editForm.email,
+        phone: editForm.phone,
+        billingAddressLine1: editForm.billingAddressLine1,
+        billingAddressLine2: editForm.billingAddressLine2,
+        city: editForm.city,
+        stateProvince: editForm.stateProvince,
+        postalCode: editForm.postalCode,
+        country: editForm.country,
+        currencyPreference: editForm.currencyPreference,
+        notes: editForm.notes,
+      });
+
+      toast.success("Customer profile updated successfully!", { id: toastId });
+      setShowEditModal(false);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Failed to update customer profile.", { id: toastId });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   // Open modal & request Stripe SetupIntent clientSecret
   const handleOpenCardModal = async () => {
@@ -185,16 +295,28 @@ export default function CustomerDetailPage() {
           </h1>
           <p className="text-sm text-muted">{customer.companyName || "No Company Specified"}</p>
         </div>
-        <button
-          onClick={handleOpenCardModal}
-          disabled={isCreatingSecret}
-          className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all self-start sm:self-center"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-          </svg>
-          {isCreatingSecret ? "Connecting..." : "Add Credit Card"}
-        </button>
+        <div className="flex items-center gap-3 self-start sm:self-center">
+          <button
+            onClick={handleOpenEditModal}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-border hover:border-primary text-brandText text-xs font-bold rounded-xl shadow-xs transition-all"
+          >
+            <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            Edit Customer
+          </button>
+
+          <button
+            onClick={handleOpenCardModal}
+            disabled={isCreatingSecret}
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            {isCreatingSecret ? "Connecting..." : "Add Credit Card"}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -386,6 +508,222 @@ export default function CustomerDetailPage() {
                     onSuccess={() => setShowCardModal(false)} 
                   />
                 </Elements>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT CUSTOMER MODAL */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+          {/* Backdrop overlay */}
+          <div 
+            className="fixed inset-0 bg-black/45 backdrop-blur-xs transition-opacity animate-fade-in" 
+            onClick={() => setShowEditModal(false)} 
+          />
+
+          {/* Positioner */}
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-start justify-center p-4 sm:p-6 md:p-10">
+              {/* Panel */}
+              <div className="relative transform rounded-2xl bg-white p-6 md:p-8 text-left shadow-2xl transition-all w-full max-w-2xl border border-border space-y-6 animate-fade-in my-8 z-20">
+                <div className="flex items-center justify-between border-b border-border pb-4">
+                  <h3 className="text-base font-bold text-brandText uppercase tracking-wider">Edit Customer Profile</h3>
+                  <button
+                    onClick={() => setShowEditModal(false)}
+                    className="text-muted hover:text-brandText"
+                  >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <form onSubmit={handleEditSubmit} className="space-y-6">
+                  {/* Contact Info */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-primary uppercase tracking-wider">Contact Info</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">First Name *</label>
+                        <input
+                          type="text"
+                          name="firstName"
+                          required
+                          value={editForm.firstName}
+                          onChange={handleEditInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="Jane"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Last Name *</label>
+                        <input
+                          type="text"
+                          name="lastName"
+                          required
+                          value={editForm.lastName}
+                          onChange={handleEditInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="Doe"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Company Name</label>
+                        <input
+                          type="text"
+                          name="companyName"
+                          value={editForm.companyName}
+                          onChange={handleEditInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="Acme Corporation"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Email *</label>
+                        <input
+                          type="email"
+                          name="email"
+                          required
+                          value={editForm.email}
+                          onChange={handleEditInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="jane.doe@example.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Phone</label>
+                        <input
+                          type="text"
+                          name="phone"
+                          value={editForm.phone}
+                          onChange={handleEditInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="+1 (555) 012-3456"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Currency Preference</label>
+                        <select
+                          name="currencyPreference"
+                          value={editForm.currencyPreference}
+                          onChange={handleEditInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                        >
+                          <option value="CAD">CAD ($)</option>
+                          <option value="USD">USD ($)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Billing Address */}
+                  <div className="space-y-4 pt-4 border-t border-border">
+                    <h4 className="text-xs font-bold text-primary uppercase tracking-wider">Billing Address</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Address Line 1</label>
+                        <input
+                          type="text"
+                          name="billingAddressLine1"
+                          value={editForm.billingAddressLine1}
+                          onChange={handleEditInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="456 Main St"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Address Line 2</label>
+                        <input
+                          type="text"
+                          name="billingAddressLine2"
+                          value={editForm.billingAddressLine2}
+                          onChange={handleEditInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="Apt 2B"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">City</label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={editForm.city}
+                          onChange={handleEditInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="Vancouver"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Province / State</label>
+                        <input
+                          type="text"
+                          name="stateProvince"
+                          value={editForm.stateProvince}
+                          onChange={handleEditInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="BC"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Postal / Zip Code</label>
+                        <input
+                          type="text"
+                          name="postalCode"
+                          value={editForm.postalCode}
+                          onChange={handleEditInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="V6B 3H6"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Country</label>
+                        <input
+                          type="text"
+                          name="country"
+                          value={editForm.country}
+                          onChange={handleEditInputChange}
+                          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                          placeholder="Canada"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div className="space-y-4 pt-4 border-t border-border">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Internal Notes</label>
+                      <textarea
+                        name="notes"
+                        value={editForm.notes}
+                        onChange={handleEditInputChange}
+                        rows={2}
+                        className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all"
+                        placeholder="Wants invoices on 1st of the month, etc..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Submit / Cancel Buttons */}
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => setShowEditModal(false)}
+                      className="px-4 py-2 border border-border text-muted hover:text-brandText text-xs font-bold rounded-xl transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isUpdating}
+                      className="px-6 py-2 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
+                    >
+                      {isUpdating ? "Saving Updates..." : "Save Changes"}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>
