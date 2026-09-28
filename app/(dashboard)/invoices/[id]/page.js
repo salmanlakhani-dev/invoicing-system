@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import Link from "next/link";
 import { compileInvoiceHTML } from "@/lib/pdf-template";
 import { useAuth } from "@/lib/auth-context";
+import { calculateLateFee } from "@/lib/late-payment";
 
 export default function InvoiceDetailPage() {
   const { id: invoiceId } = useParams();
@@ -24,6 +25,13 @@ export default function InvoiceDetailPage() {
   // Modal controls
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showChargeModal, setShowChargeModal] = useState(false);
+  const [showLatePaymentModal, setShowLatePaymentModal] = useState(false);
+
+  // Late payment configuration state
+  const [lateFeeType, setLateFeeType] = useState("percent");
+  const [lateFeeValue, setLateFeeValue] = useState(5);
+  const [lateFeeGraceDays, setLateFeeGraceDays] = useState(0);
+  const [isSavingLateFee, setIsSavingLateFee] = useState(false);
 
   // Manual payment state
   const [manualAmount, setManualAmount] = useState("");
@@ -94,6 +102,51 @@ export default function InvoiceDetailPage() {
       toast.success("Invoice voided.");
     } catch (err) {
       toast.error("Failed to void invoice.");
+    }
+  };
+
+  // Toggle late payment module on this invoice
+  const handleToggleLatePayment = async () => {
+    const currentEnabled = !!invoice?.latePayment?.enabled;
+    const newEnabled = !currentEnabled;
+    const toastId = toast.loading(newEnabled ? "Enabling late payment fee..." : "Disabling late payment fee...");
+    try {
+      await updateDoc(doc(db, "invoices", invoiceId), {
+        "latePayment.enabled": newEnabled,
+        "latePayment.type": invoice?.latePayment?.type || lateFeeType || "percent",
+        "latePayment.value": invoice?.latePayment?.value !== undefined ? invoice.latePayment.value : lateFeeValue,
+        "latePayment.gracePeriodDays": invoice?.latePayment?.gracePeriodDays || lateFeeGraceDays || 0,
+        updatedAt: new Date().toISOString(),
+      });
+      toast.success(newEnabled ? "Late payment fee enabled!" : "Late payment fee disabled.", { id: toastId });
+    } catch (err) {
+      console.error("Failed to toggle late payment:", err);
+      toast.error("Failed to update late payment settings.", { id: toastId });
+    }
+  };
+
+  // Save detailed late payment configuration
+  const handleSaveLatePaymentConfig = async (e) => {
+    e.preventDefault();
+    setIsSavingLateFee(true);
+    const toastId = toast.loading("Updating late payment settings...");
+    try {
+      await updateDoc(doc(db, "invoices", invoiceId), {
+        latePayment: {
+          enabled: true,
+          type: lateFeeType,
+          value: parseFloat(lateFeeValue) || 0,
+          gracePeriodDays: parseInt(lateFeeGraceDays, 10) || 0,
+        },
+        updatedAt: new Date().toISOString(),
+      });
+      toast.success("Late payment rules saved!", { id: toastId });
+      setShowLatePaymentModal(false);
+    } catch (err) {
+      console.error("Failed to save late payment configuration:", err);
+      toast.error("Failed to save late payment rules.", { id: toastId });
+    } finally {
+      setIsSavingLateFee(false);
     }
   };
 
@@ -329,8 +382,9 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  const balanceDue = invoice.total - (invoice.amountPaid || 0);
-  const isPaid = invoice.status === "Paid";
+  const lateFeeInfo = calculateLateFee(invoice);
+  const balanceDue = lateFeeInfo.balanceDue;
+  const isPaid = invoice.status === "Paid" || balanceDue <= 0;
   const eligibleCards = cards.filter(c => c.allowOffSession);
 
   return (
@@ -344,11 +398,31 @@ export default function InvoiceDetailPage() {
           Back to Invoices
         </Link>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-extrabold text-brandText tracking-tight">{invoice.invoiceNumber}</h1>
             <span className={`inline-flex px-3 py-1 border rounded-full text-xs font-bold ${statusColors[invoice.status] || "bg-gray-100 text-gray-800"}`}>
               {invoice.status}
             </span>
+            {(invoice.viewedAt || invoice.isViewed || invoice.status === "Viewed") && invoice.status !== "Viewed" && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 border rounded-full text-xs font-bold bg-purple-50 text-purple-700 border-purple-200">
+                <svg className="w-3.5 h-3.5 text-purple-600" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Viewed {invoice.viewedAt ? `(${formatDate(invoice.viewedAt)})` : ""}
+              </span>
+            )}
+            {!isPaid && invoice.status !== "Void" && (
+              <Link
+                href={`/invoices/${invoiceId}/edit`}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-gray-50 border border-border text-primary text-xs font-bold rounded-xl shadow-xs transition-all"
+              >
+                <svg className="w-3.5 h-3.5" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Invoice
+              </Link>
+            )}
           </div>
           <p className="text-xs text-muted font-semibold">
             Token URL: <code className="text-primary bg-primary/5 px-2 py-1 rounded">/pay/{invoice.token}</code>
@@ -447,6 +521,18 @@ export default function InvoiceDetailPage() {
                   <span>Total Due:</span>
                   <span>{formatCurrency(invoice.total, invoice.currency)}</span>
                 </div>
+                {lateFeeInfo.applied && (
+                  <>
+                    <div className="flex justify-between text-xs font-bold text-rose-600 border-t border-border pt-2">
+                      <span>Late Payment Fee ({lateFeeInfo.type === "percent" ? `${lateFeeInfo.value}%` : "Fixed"}):</span>
+                      <span>+{formatCurrency(lateFeeInfo.feeAmount, invoice.currency)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-bold text-brandText">
+                      <span>Adjusted Total:</span>
+                      <span>{formatCurrency(lateFeeInfo.adjustedTotal, invoice.currency)}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between text-xs font-bold text-success pt-1">
                   <span>Amount Paid:</span>
                   <span>{formatCurrency(invoice.amountPaid || 0, invoice.currency)}</span>
@@ -526,6 +612,19 @@ export default function InvoiceDetailPage() {
           <div className="glass-card rounded-2xl p-6 border border-border shadow-sm bg-white/50 space-y-4">
             <h3 className="text-xs font-bold text-primary uppercase tracking-wider border-b border-border pb-3">Actions</h3>
             
+            {/* Edit Invoice Button (Only if not paid and not void) */}
+            {!isPaid && invoice.status !== "Void" && (
+              <Link
+                href={`/invoices/${invoiceId}/edit`}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary/10 hover:bg-primary hover:text-white text-primary text-xs font-bold rounded-xl shadow-xs transition-all"
+              >
+                <svg className="w-4 h-4" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Invoice
+              </Link>
+            )}
+
             {/* Download/Send */}
             <button
               onClick={handleDownloadPDF}
@@ -592,6 +691,80 @@ export default function InvoiceDetailPage() {
                 Duplicate
               </button>
             </div>
+          </div>
+
+          {/* Late Payment Module Card */}
+          <div className="glass-card rounded-2xl p-6 border border-border shadow-sm bg-white/50 space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Late Payments</h3>
+                <p className="text-[10px] text-muted">Overdue fee rules</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!invoice?.latePayment?.enabled}
+                  onChange={handleToggleLatePayment}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+              </label>
+            </div>
+
+            {invoice?.latePayment?.enabled ? (
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between items-center text-muted font-semibold">
+                  <span>Fee Rate:</span>
+                  <span className="font-bold text-brandText">
+                    {invoice.latePayment.type === "percent" 
+                      ? `${invoice.latePayment.value}% of total` 
+                      : formatCurrency(invoice.latePayment.value, invoice.currency)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-muted font-semibold">
+                  <span>Grace Period:</span>
+                  <span className="font-bold text-brandText">
+                    {invoice.latePayment.gracePeriodDays ? `${invoice.latePayment.gracePeriodDays} days` : "None (Immediate)"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-muted font-semibold">
+                  <span>Status:</span>
+                  <span className={`font-bold ${lateFeeInfo.applied ? "text-error" : "text-emerald-600"}`}>
+                    {lateFeeInfo.applied ? `Active (+${formatCurrency(lateFeeInfo.feeAmount, invoice.currency)})` : "Not applied yet"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLateFeeType(invoice.latePayment.type || "percent");
+                    setLateFeeValue(invoice.latePayment.value !== undefined ? invoice.latePayment.value : 5);
+                    setLateFeeGraceDays(invoice.latePayment.gracePeriodDays || 0);
+                    setShowLatePaymentModal(true);
+                  }}
+                  className="w-full mt-2 py-1.5 px-3 border border-border hover:bg-gray-50 text-[11px] font-bold text-brandText rounded-lg transition-all"
+                >
+                  Configure Fee Rules
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-[11px] text-muted leading-relaxed">
+                  Late payment module is currently <span className="font-bold text-brandText">disabled</span> (default off). Enable to apply an automated fee if invoice becomes overdue.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLateFeeType("percent");
+                    setLateFeeValue(5);
+                    setLateFeeGraceDays(0);
+                    setShowLatePaymentModal(true);
+                  }}
+                  className="w-full py-1.5 px-3 bg-primary/5 hover:bg-primary/10 border border-primary/20 text-[11px] font-bold text-primary rounded-lg transition-all"
+                >
+                  Enable & Configure Late Fee
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -765,6 +938,115 @@ export default function InvoiceDetailPage() {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIGURE LATE PAYMENT MODAL */}
+      {showLatePaymentModal && (
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+          {/* Backdrop overlay */}
+          <div 
+            className="fixed inset-0 bg-black/45 backdrop-blur-xs transition-opacity animate-fade-in" 
+            onClick={() => setShowLatePaymentModal(false)} 
+          />
+
+          {/* Positioner */}
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-start justify-center p-4 sm:p-6 md:p-10">
+              {/* Panel */}
+              <div className="relative transform rounded-2xl bg-white p-6 border border-border shadow-2xl transition-all w-full max-w-md space-y-4 animate-fade-in my-8 z-20">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-brandText uppercase tracking-wider">Late Payment Rules</h3>
+                    <p className="text-[10px] text-muted">Configure overdue fee calculations for {invoice.invoiceNumber}</p>
+                  </div>
+                  <button
+                    onClick={() => setShowLatePaymentModal(false)}
+                    className="text-muted hover:text-brandText"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveLatePaymentConfig} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Fee Type</label>
+                      <select
+                        value={lateFeeType}
+                        onChange={(e) => setLateFeeType(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none font-semibold"
+                      >
+                        <option value="percent">Percentage (%)</option>
+                        <option value="fixed">Fixed Amount ($)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">
+                        Fee Value {lateFeeType === "percent" ? "(%)" : `(${invoice.currency})`}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step={lateFeeType === "percent" ? "0.5" : "1"}
+                        required
+                        value={lateFeeValue}
+                        onChange={(e) => setLateFeeValue(Math.max(0, parseFloat(e.target.value) || 0))}
+                        className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">
+                      Grace Period (Days after Due Date)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={lateFeeGraceDays}
+                      onChange={(e) => setLateFeeGraceDays(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none font-semibold"
+                      placeholder="0 (Immediate)"
+                    />
+                    <p className="text-[10px] text-muted mt-1">
+                      {lateFeeGraceDays > 0 
+                        ? `Fee will apply ${lateFeeGraceDays} days after due date (${formatDate(invoice.dueDate)}).` 
+                        : "Fee applies immediately after invoice due date passes."}
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-snug">
+                    <span className="font-bold">Calculated Fee Preview: </span>
+                    {lateFeeType === "percent" 
+                      ? `${lateFeeValue}% of total amount (~${formatCurrency((invoice.total * (parseFloat(lateFeeValue) || 0)) / 100, invoice.currency)})`
+                      : `${formatCurrency(lateFeeValue, invoice.currency)} fixed late fee`
+                    }
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => setShowLatePaymentModal(false)}
+                      className="px-4 py-2 border border-border text-muted hover:text-brandText text-xs font-bold rounded-xl transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingLateFee}
+                      className="px-6 py-2 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
+                    >
+                      {isSavingLateFee ? "Saving..." : "Save Late Fee Rules"}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>

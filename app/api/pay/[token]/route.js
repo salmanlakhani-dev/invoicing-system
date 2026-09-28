@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import Stripe from "stripe";
+import { calculateLateFee } from "@/lib/late-payment";
 
 /**
  * Public route handler for the Pay page, fetching invoice parameters securely by token,
@@ -45,6 +46,7 @@ export async function GET(req, { params }) {
     const updateData = {};
     if (!invoice.viewedAt) {
       updateData.viewedAt = new Date().toISOString();
+      updateData.isViewed = true;
       if (invoice.status === "Sent") {
         updateData.status = "Viewed";
       }
@@ -52,11 +54,13 @@ export async function GET(req, { params }) {
       
       // Update local invoice object for response
       invoice.viewedAt = updateData.viewedAt;
+      invoice.isViewed = true;
       if (updateData.status) invoice.status = updateData.status;
     }
 
     // 5. Generate Stripe PaymentIntent if invoice has outstanding balance
-    const balanceDue = invoice.total - (invoice.amountPaid || 0);
+    const lateFeeInfo = calculateLateFee(invoice);
+    const balanceDue = lateFeeInfo.balanceDue;
     let clientSecret = "";
     let publishableKey = "";
     let stripeError = null;
@@ -111,7 +115,8 @@ export async function GET(req, { params }) {
       config,
       clientSecret,
       publishableKey,
-      stripeError
+      stripeError,
+      lateFeeInfo
     });
   } catch (err) {
     console.error("Public Invoice Fetch Failure:", err);

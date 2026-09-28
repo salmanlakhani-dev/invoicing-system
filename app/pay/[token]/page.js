@@ -16,6 +16,7 @@ export default function PublicPayPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [isStripeLoaded, setIsStripeLoaded] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -76,8 +77,10 @@ export default function PublicPayPage() {
     );
   }
 
-  const { invoice, customer, company, config, clientSecret, stripeError } = data;
-  const balanceDue = invoice.total - (invoice.amountPaid || 0);
+  const { invoice, customer, company, config, clientSecret, stripeError, lateFeeInfo } = data;
+  const balanceDue = lateFeeInfo?.balanceDue !== undefined 
+    ? lateFeeInfo.balanceDue 
+    : Math.max(0, invoice.total - (invoice.amountPaid || 0));
   const isPaid = invoice.status === "Paid" || balanceDue <= 0;
   const isMockStripe = clientSecret && clientSecret.startsWith("pi_mock_secret_");
 
@@ -134,8 +137,8 @@ export default function PublicPayPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8 animate-fade-in">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background py-8 sm:py-12 px-4 sm:px-6 lg:px-8 animate-fade-in">
+      <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Paid Banner Screen */}
         {isPaid && (
@@ -160,10 +163,10 @@ export default function PublicPayPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Main Invoice Card (Left column span 2) */}
-          <div className="md:col-span-2 glass-card rounded-2xl p-6 md:p-8 border border-border bg-white shadow-lg text-xs font-semibold text-brandText space-y-8">
+          {/* Main Invoice Card (Left column: lg:col-span-7) */}
+          <div className="lg:col-span-7 glass-card rounded-2xl p-6 sm:p-8 border border-border bg-white shadow-lg text-xs font-semibold text-brandText space-y-8">
             <div className="flex justify-between items-start gap-4">
               <div className="space-y-1">
                 {company.logoUrl ? (
@@ -224,7 +227,7 @@ export default function PublicPayPage() {
 
             {/* Calculations Footer */}
             <div className="flex justify-end pt-4">
-              <div className="w-64 space-y-2 text-xs font-semibold">
+              <div className="w-72 space-y-2 text-xs font-semibold">
                 <div className="flex justify-between">
                   <span className="text-muted">Subtotal:</span>
                   <span>{formatCurrency(invoice.subtotal)}</span>
@@ -245,6 +248,18 @@ export default function PublicPayPage() {
                   <span>Total Due:</span>
                   <span>{formatCurrency(invoice.total)}</span>
                 </div>
+                {lateFeeInfo?.applied && (
+                  <>
+                    <div className="flex justify-between text-xs font-bold text-rose-600 border-t border-border pt-2">
+                      <span>Late Payment Fee ({lateFeeInfo.type === "percent" ? `${lateFeeInfo.value}%` : "Fixed"}):</span>
+                      <span>+{formatCurrency(lateFeeInfo.feeAmount)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-bold text-brandText">
+                      <span>Adjusted Total:</span>
+                      <span>{formatCurrency(lateFeeInfo.adjustedTotal)}</span>
+                    </div>
+                  </>
+                )}
                 {invoice.amountPaid > 0 && (
                   <div className="flex justify-between text-xs font-bold text-success pt-1">
                     <span>Amount Paid:</span>
@@ -255,6 +270,22 @@ export default function PublicPayPage() {
                   <div className="flex justify-between text-base font-black text-error border-t border-dashed border-border pt-2">
                     <span>Balance Due:</span>
                     <span>{formatCurrency(balanceDue)}</span>
+                  </div>
+                )}
+
+                {/* Quick popup payment trigger right under balance */}
+                {!isPaid && (
+                  <div className="pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowPaymentModal(true)}
+                      className="w-full py-2.5 px-4 bg-[#FE1D66] hover:bg-[#D0104E] text-white text-xs font-extrabold rounded-xl shadow-md shadow-secondary/15 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                      <span>Pay Now in Popup ({formatCurrency(balanceDue)})</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -279,50 +310,104 @@ export default function PublicPayPage() {
             )}
           </div>
 
-          {/* Payment Gateway Form (Right Column) */}
-          <div className="space-y-6">
+          {/* Payment Gateway Form (Right Column: lg:col-span-5) */}
+          <div className="lg:col-span-5 space-y-6">
             {!isPaid && (
-              <div className="glass-card rounded-2xl p-6 border border-border bg-white shadow-lg space-y-6">
-                <div>
-                  <h3 className="text-xs font-bold text-primary uppercase tracking-wider mb-1">Secure Online Checkout</h3>
-                  <p className="text-[10px] text-muted">Submit your payment details below to settle this balance instantly.</p>
+              <div className="glass-card rounded-2xl sm:rounded-3xl p-6 sm:p-7 border border-border bg-white shadow-xl space-y-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold mb-2">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      <span>Secure Online Checkout</span>
+                    </div>
+                    <h3 className="text-base font-black text-brandText">Payment Gateway</h3>
+                    <p className="text-xs text-muted mt-0.5">Submit your card or Link details below to settle this invoice.</p>
+                  </div>
+
+                  {/* Switch to Popup button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPaymentModal(true)}
+                    title="Open checkout in large popup modal"
+                    className="p-2 sm:px-3 sm:py-2 text-xs font-bold text-primary hover:text-white hover:bg-primary rounded-xl border border-primary/20 bg-primary/5 flex items-center gap-1.5 transition-all shrink-0 cursor-pointer shadow-xs"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                    <span className="hidden sm:inline">Popup View</span>
+                  </button>
                 </div>
 
-                {stripeError ? (
-                  <div className="p-4 border border-rose-200 rounded-xl bg-rose-50/50 space-y-2 text-xs text-left">
-                    <h4 className="font-bold text-rose-700 uppercase tracking-wider">⚠️ Payment Gateway Error</h4>
-                    <p className="text-rose-600/90 leading-relaxed font-semibold">
-                      {stripeError}
-                    </p>
-                    <p className="text-[10px] text-muted pt-1 border-t border-rose-100">
-                      Stripe secret keys must match your publishable key mode and must be set in your server environments (Vercel or .env.local).
-                    </p>
+                {/* Prominent Balance Banner */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100/80 border border-slate-200/80 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted tracking-wider block">Balance Due</span>
+                    <span className="text-xl font-black text-brandText">{formatCurrency(balanceDue)}</span>
                   </div>
-                ) : isMockStripe ? (
-                  // Mock Sandbox Checkout UI
-                  <MockCheckoutForm 
-                    invoiceId={invoice.id} 
-                    amount={balanceDue} 
-                    currency={invoice.currency} 
-                  />
-                ) : (
-                  // Live/Sandbox Stripe Checkout Element
-                  isStripeLoaded && clientSecret ? (
-                    <Elements stripe={stripePromise} options={{ clientSecret }}>
-                      <StripeCheckoutForm invoiceId={invoice.id} />
-                    </Elements>
-                  ) : (
-                    <div className="text-center py-6 text-xs text-muted">
-                      {clientSecret ? "Stripe client failed to load. Please verify publishable keys." : "Stripe checkout could not be initialized."}
+                  <div className="text-right">
+                    <span className="text-[10px] uppercase font-bold text-muted tracking-wider block">Due Date</span>
+                    <span className="text-xs font-bold text-rose-600">{formatDate(invoice.dueDate)}</span>
+                  </div>
+                </div>
+
+                {/* Inline Payment Gateway UI */}
+                {!showPaymentModal ? (
+                  stripeError ? (
+                    <div className="p-4 border border-rose-200 rounded-xl bg-rose-50/50 space-y-2 text-xs text-left">
+                      <h4 className="font-bold text-rose-700 uppercase tracking-wider">⚠️ Payment Gateway Error</h4>
+                      <p className="text-rose-600/90 leading-relaxed font-semibold">
+                        {stripeError}
+                      </p>
+                      <p className="text-[10px] text-muted pt-1 border-t border-rose-100">
+                        Stripe secret keys must match your publishable key mode and must be set in your server environments (Vercel or .env.local).
+                      </p>
                     </div>
+                  ) : isMockStripe ? (
+                    // Mock Sandbox Checkout UI
+                    <MockCheckoutForm 
+                      invoiceId={invoice.id} 
+                      amount={balanceDue} 
+                      currency={invoice.currency} 
+                    />
+                  ) : (
+                    // Live/Sandbox Stripe Checkout Element with roomy container
+                    isStripeLoaded && clientSecret ? (
+                      <div className="space-y-4">
+                        <Elements stripe={stripePromise} options={{ clientSecret }}>
+                          <StripeCheckoutForm invoiceId={invoice.id} amountText={formatCurrency(balanceDue)} />
+                        </Elements>
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-xs text-muted">
+                        {clientSecret ? "Stripe client loading..." : "Stripe checkout could not be initialized."}
+                      </div>
+                    )
                   )
+                ) : (
+                  <div className="p-6 text-center rounded-2xl border-2 border-dashed border-primary/20 bg-primary/5 space-y-3">
+                    <div className="h-10 w-10 mx-auto rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                      </svg>
+                    </div>
+                    <p className="text-xs font-bold text-brandText">Checkout is active in the Popup Window</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowPaymentModal(false)}
+                      className="px-4 py-2 bg-white border border-border hover:bg-slate-50 text-xs font-bold rounded-xl text-primary shadow-xs transition-all cursor-pointer"
+                    >
+                      Return to inline view
+                    </button>
+                  </div>
                 )}
               </div>
             )}
 
             <button
               onClick={handleDownloadPDF}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-border hover:bg-gray-50 text-brandText text-xs font-bold rounded-2xl shadow-sm transition-all"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-border hover:bg-gray-50 text-brandText text-xs font-bold rounded-2xl shadow-sm transition-all cursor-pointer"
             >
               <svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -333,6 +418,85 @@ export default function PublicPayPage() {
 
         </div>
       </div>
+
+      {/* Spacious Fullscreen Checkout Popup Modal */}
+      {showPaymentModal && !isPaid && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+          onClick={() => setShowPaymentModal(false)}
+        >
+          <div 
+            className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 sm:px-8 py-5 border-b border-border bg-slate-50/80">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-brandText">Secure Payment Checkout</h3>
+                  <p className="text-xs text-muted">Invoice #{invoice.invoiceNumber} • {customer.companyName || `${customer.firstName} ${customer.lastName}`}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPaymentModal(false)}
+                className="p-2 text-muted hover:text-brandText hover:bg-slate-200/60 rounded-xl transition-all cursor-pointer"
+                aria-label="Close modal"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body with Large Spacious Elements Container */}
+            <div className="p-6 sm:p-8 space-y-6 max-h-[82vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-4 rounded-2xl bg-primary/5 border border-primary/15">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-muted tracking-wider block">Total Amount Due</span>
+                  <span className="text-2xl font-black text-primary">{formatCurrency(balanceDue)}</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200/60">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span>256-Bit SSL Encrypted</span>
+                </div>
+              </div>
+
+              {stripeError ? (
+                <div className="p-4 border border-rose-200 rounded-xl bg-rose-50/50 space-y-2 text-xs text-left">
+                  <h4 className="font-bold text-rose-700 uppercase tracking-wider">⚠️ Payment Gateway Error</h4>
+                  <p className="text-rose-600/90 leading-relaxed font-semibold">{stripeError}</p>
+                </div>
+              ) : isMockStripe ? (
+                <MockCheckoutForm 
+                  invoiceId={invoice.id} 
+                  amount={balanceDue} 
+                  currency={invoice.currency} 
+                />
+              ) : (
+                isStripeLoaded && clientSecret ? (
+                  <div className="space-y-4">
+                    <Elements stripe={stripePromise} options={{ clientSecret }}>
+                      <StripeCheckoutForm invoiceId={invoice.id} amountText={formatCurrency(balanceDue)} />
+                    </Elements>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-xs text-muted">
+                    {clientSecret ? "Stripe client loading..." : "Stripe checkout could not be initialized."}
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -340,7 +504,7 @@ export default function PublicPayPage() {
 /**
  * Inner component to handle real Stripe checkout elements confirmation.
  */
-function StripeCheckoutForm({ invoiceId }) {
+function StripeCheckoutForm({ invoiceId, amountText }) {
   const stripe = useStripe();
   const elements = useElements();
   const [isPaying, setIsPaying] = useState(false);
@@ -373,16 +537,16 @@ function StripeCheckoutForm({ invoiceId }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="p-3 border border-border rounded-xl bg-gray-50/50">
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="p-4 sm:p-5 border border-border/80 rounded-2xl bg-white shadow-xs">
         <PaymentElement />
       </div>
       <button
         type="submit"
         disabled={isPaying || !stripe}
-        className="w-full py-3 bg-[#FE1D66] hover:bg-[#D0104E] text-white text-xs font-extrabold rounded-xl shadow-md shadow-secondary/15 transition-all disabled:opacity-50"
+        className="w-full py-3.5 bg-[#FE1D66] hover:bg-[#D0104E] text-white text-xs sm:text-sm font-black rounded-xl shadow-lg shadow-secondary/15 transition-all disabled:opacity-50 cursor-pointer"
       >
-        {isPaying ? "Processing Payment..." : "Settle Balance Due"}
+        {isPaying ? "Processing Payment..." : `Settle Balance Due ${amountText ? `(${amountText})` : ""}`}
       </button>
     </form>
   );

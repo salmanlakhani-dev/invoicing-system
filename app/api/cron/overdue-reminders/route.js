@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendEmail } from "@/lib/email";
+import { calculateLateFee } from "@/lib/late-payment";
 
 export async function GET(req) {
   return handleCron(req);
@@ -44,15 +45,15 @@ async function handleCron(req) {
 
     querySnap.docs.forEach(docSnap => {
       const data = docSnap.data();
-      // Ensure due date is passed, balance is outstanding, and reminder hasn't been sent yet
-      const balanceDue = data.total - (data.amountPaid || 0);
+      const lateFeeInfo = calculateLateFee(data);
+      const balanceDue = lateFeeInfo.balanceDue;
       if (
         data.dueDate &&
         data.dueDate < todayStr &&
         balanceDue > 0 &&
         !data.overdueReminderSent
       ) {
-        overdueInvoices.push({ id: docSnap.id, ...data, balanceDue });
+        overdueInvoices.push({ id: docSnap.id, ...data, balanceDue, lateFeeInfo });
       }
     });
 
@@ -105,6 +106,12 @@ async function handleCron(req) {
                     <td style="color: #4A5568; padding: 4px 0;">Original Due Date:</td>
                     <td style="font-weight: bold; text-align: right; color: #E53E3E;">${formattedDueDate}</td>
                   </tr>
+                  ${invoice.lateFeeInfo?.applied ? `
+                  <tr>
+                    <td style="color: #E53E3E; padding: 4px 0;">Late Payment Fee (${invoice.lateFeeInfo.type === "percent" ? `${invoice.lateFeeInfo.value}%` : "Fixed"}):</td>
+                    <td style="font-weight: bold; text-align: right; color: #E53E3E;">+${new Intl.NumberFormat("en-US", { style: "currency", currency: invoice.currency || "CAD" }).format(invoice.lateFeeInfo.feeAmount)} ${invoice.currency || "CAD"}</td>
+                  </tr>
+                  ` : ""}
                   <tr style="border-top: 1px solid #FED7D7; font-size: 15px;">
                     <td style="color: #E53E3E; font-weight: bold; padding: 10px 0 0 0;">Outstanding Balance:</td>
                     <td style="color: #E53E3E; font-weight: bold; text-align: right; padding: 10px 0 0 0;">${formattedBalance}</td>

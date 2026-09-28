@@ -52,6 +52,13 @@ export default function InvoiceBuilder({ invoiceId }) {
   const [discountType, setDiscountType] = useState("percent"); // 'flat' | 'percent'
   const [discountValue, setDiscountValue] = useState(0);
 
+  // Late Payment Module (default OFF)
+  const [latePaymentEnabled, setLatePaymentEnabled] = useState(false);
+  const [latePaymentType, setLatePaymentType] = useState("percent"); // 'percent' | 'fixed'
+  const [latePaymentValue, setLatePaymentValue] = useState(5);
+  const [gracePeriodDays, setGracePeriodDays] = useState(0);
+  const [existingStatus, setExistingStatus] = useState("Draft");
+
   // Notes & Terms
   const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState("");
@@ -98,6 +105,11 @@ export default function InvoiceBuilder({ invoiceId }) {
           const invSnap = await getDoc(doc(db, "invoices", invoiceId));
           if (invSnap.exists()) {
             const invData = invSnap.data();
+            if (invData.status === "Paid" || ((invData.total > 0) && (invData.amountPaid || 0) >= invData.total)) {
+              toast.error("Paid invoices cannot be edited.");
+              router.push(`/invoices/${invoiceId}`);
+              return;
+            }
             setInvoiceNumber(invData.invoiceNumber);
             setTitle(invData.title || "");
             setIssueDate(invData.issueDate || today);
@@ -109,6 +121,15 @@ export default function InvoiceBuilder({ invoiceId }) {
             setDiscountValue(invData.discount?.value || 0);
             setNotes(invData.notes || "");
             setTerms(invData.terms || "");
+            setExistingStatus(invData.status || "Draft");
+            if (invData.latePayment) {
+              setLatePaymentEnabled(!!invData.latePayment.enabled);
+              setLatePaymentType(invData.latePayment.type || "percent");
+              setLatePaymentValue(invData.latePayment.value !== undefined ? invData.latePayment.value : 5);
+              setGracePeriodDays(invData.latePayment.gracePeriodDays || 0);
+            } else {
+              setLatePaymentEnabled(false);
+            }
           } else {
             toast.error("Invoice not found.");
             router.push("/invoices");
@@ -218,7 +239,7 @@ export default function InvoiceBuilder({ invoiceId }) {
 
   // Submit Handler
   const handleSave = async (status) => {
-    if (!emailConfig.encryptedResendApiKey) {
+    if (status === "Sent" && !emailConfig.encryptedResendApiKey) {
       toast.error("Email setup is incomplete. Please go to Settings > Email Setup and configure your Resend API Key first.");
       return;
     }
@@ -239,7 +260,7 @@ export default function InvoiceBuilder({ invoiceId }) {
         invoiceNumber,
         title,
         customerId,
-        status,
+        status: status || existingStatus || "Draft",
         currency,
         issueDate,
         dueDate,
@@ -256,6 +277,12 @@ export default function InvoiceBuilder({ invoiceId }) {
         amountPaid: invoiceId ? undefined : 0, // Reset only in new mode
         notes,
         terms,
+        latePayment: {
+          enabled: latePaymentEnabled,
+          type: latePaymentType,
+          value: parseFloat(latePaymentValue) || 0,
+          gracePeriodDays: parseInt(gracePeriodDays, 10) || 0,
+        },
         token: invoiceId ? undefined : Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2),
         createdAt: invoiceId ? undefined : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -332,9 +359,13 @@ export default function InvoiceBuilder({ invoiceId }) {
           <h1 className="text-3xl font-extrabold text-brandText tracking-tight">
             {invoiceId ? `Edit Invoice ${invoiceNumber}` : "Create Invoice"}
           </h1>
-          <p className="text-sm text-muted">Draft a new invoice, configure catalog line items, apply taxes, and save drafts.</p>
+          <p className="text-sm text-muted">
+            {invoiceId 
+              ? "Modify invoice items, dates, notes, and late payment rules." 
+              : "Draft a new invoice, configure catalog line items, apply taxes, and save drafts."}
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={() => setShowPreview(true)}
@@ -342,22 +373,53 @@ export default function InvoiceBuilder({ invoiceId }) {
           >
             Preview Invoice
           </button>
-          <button
-            type="button"
-            onClick={() => handleSave("Draft")}
-            disabled={isSaving}
-            className="px-4 py-2 bg-white hover:bg-gray-50 border border-border text-primary text-xs font-bold rounded-xl shadow-sm transition-all"
-          >
-            Save as Draft
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSave("Sent")}
-            disabled={isSaving}
-            className="px-5 py-2 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all"
-          >
-            Save & Send
-          </button>
+
+          {invoiceId ? (
+            <>
+              <button
+                type="button"
+                onClick={() => router.push(`/invoices/${invoiceId}`)}
+                className="px-4 py-2 border border-border bg-white hover:bg-gray-50 text-muted hover:text-brandText text-xs font-bold rounded-xl shadow-sm transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSave(existingStatus)}
+                disabled={isSaving}
+                className="px-5 py-2 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+              >
+                Save Changes
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSave("Sent")}
+                disabled={isSaving}
+                className="px-4 py-2 border border-primary text-primary hover:bg-primary/5 text-xs font-bold rounded-xl shadow-sm transition-all"
+              >
+                Save & Resend
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => handleSave("Draft")}
+                disabled={isSaving}
+                className="px-4 py-2 bg-white hover:bg-gray-50 border border-border text-primary text-xs font-bold rounded-xl shadow-sm transition-all"
+              >
+                Save as Draft
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSave("Sent")}
+                disabled={isSaving}
+                className="px-5 py-2 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+              >
+                Save & Send
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -647,6 +709,87 @@ export default function InvoiceBuilder({ invoiceId }) {
                 <span>{formatCurrency(total, currency)}</span>
               </div>
             </div>
+          </div>
+
+          {/* Late Payment Module Card */}
+          <div className="glass-card rounded-2xl p-6 border border-border shadow-sm bg-white/50 space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Late Payment Module</h3>
+                <p className="text-[10px] text-muted">Apply late fee if unpaid past due date</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={latePaymentEnabled}
+                  onChange={(e) => setLatePaymentEnabled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+              </label>
+            </div>
+
+            {latePaymentEnabled ? (
+              <div className="space-y-3 animate-fade-in pt-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Fee Type</label>
+                    <select
+                      value={latePaymentType}
+                      onChange={(e) => setLatePaymentType(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-white px-2 py-1.5 text-xs text-brandText focus:border-primary focus:outline-none font-semibold"
+                    >
+                      <option value="percent">Percent (%)</option>
+                      <option value="fixed">Fixed ($)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">
+                      Fee Value {latePaymentType === "percent" ? "(%)" : `(${currency})`}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step={latePaymentType === "percent" ? "0.5" : "1"}
+                      value={latePaymentValue}
+                      onChange={(e) => setLatePaymentValue(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-full rounded-lg border border-border bg-white px-2 py-1.5 text-xs text-brandText focus:border-primary focus:outline-none font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">
+                    Grace Period (Days after Due Date)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={gracePeriodDays}
+                    onChange={(e) => setGracePeriodDays(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    className="w-full rounded-lg border border-border bg-white px-2 py-1.5 text-xs text-brandText focus:border-primary focus:outline-none font-semibold"
+                    placeholder="0"
+                  />
+                  <p className="text-[10px] text-muted mt-1">
+                    {gracePeriodDays > 0 
+                      ? `Fee applies ${gracePeriodDays} days after due date.` 
+                      : "Fee applies immediately after due date."}
+                  </p>
+                </div>
+
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-snug">
+                  <span className="font-bold">Overdue Rule: </span>
+                  {latePaymentType === "percent" 
+                    ? `${latePaymentValue}% fee (~${formatCurrency((total * (parseFloat(latePaymentValue) || 0)) / 100, currency)}) added if unpaid after due date.`
+                    : `${formatCurrency(latePaymentValue, currency)} fixed fee added if unpaid after due date.`
+                  }
+                </div>
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted">
+                Late payment fee is <span className="font-bold text-brandText">disabled</span> for this invoice (default off). Toggle on to charge late fees.
+              </p>
+            )}
           </div>
 
           {/* Notes & Terms */}

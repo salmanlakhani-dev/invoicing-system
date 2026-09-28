@@ -454,17 +454,39 @@ export default function CustomerDetailPage() {
                       <td className="py-3.5">{formatDate(inv.dueDate)}</td>
                       <td className="py-3.5 font-bold">{formatCurrency(inv.total || 0, inv.currency)}</td>
                       <td className="py-3.5">
-                        <span className={`inline-flex px-2 py-0.5 border rounded-full text-[10px] font-bold ${statusColors[inv.status] || "bg-gray-100 text-gray-800"}`}>
-                          {inv.status}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={`inline-flex px-2 py-0.5 border rounded-full text-[10px] font-bold ${statusColors[inv.status] || "bg-gray-100 text-gray-800"}`}>
+                            {inv.status}
+                          </span>
+                          {(inv.viewedAt || inv.isViewed || inv.status === "Viewed") && inv.status !== "Viewed" && (
+                            <span 
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 border rounded-full text-[9px] font-bold bg-purple-50 text-purple-700 border-purple-200" 
+                              title={inv.viewedAt ? `Viewed by client on ${formatDate(inv.viewedAt)}` : "Viewed by client"}
+                            >
+                              <svg className="w-2.5 h-2.5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              Viewed
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="py-3.5 text-right">
+                      <td className="py-3.5 text-right flex justify-end gap-1.5">
                         <Link
                           href={`/invoices/${inv.id}`}
                           className="inline-flex px-2.5 py-1.5 bg-primary/5 hover:bg-primary hover:text-white rounded-lg text-[10px] font-bold text-primary transition-all"
                         >
                           View
                         </Link>
+                        {inv.status !== "Paid" && inv.status !== "Void" && (inv.amountPaid || 0) < (inv.total || 0) && (
+                          <Link
+                            href={`/invoices/${inv.id}/edit`}
+                            className="inline-flex px-2.5 py-1.5 border border-border hover:bg-gray-50 rounded-lg text-[10px] font-bold text-muted hover:text-brandText transition-all"
+                          >
+                            Edit
+                          </Link>
+                        )}
                       </td>
                     </tr>
                   ))}

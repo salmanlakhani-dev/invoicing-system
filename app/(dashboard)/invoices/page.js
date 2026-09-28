@@ -304,56 +304,85 @@ export default function InvoicesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredInvoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-primary/5 font-semibold text-brandText transition-all">
-                    <td className="p-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedInvoices.includes(inv.id)}
-                        onChange={() => handleSelectInvoice(inv.id)}
-                        className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                      />
-                    </td>
-                    <td className="p-4">
-                      <Link href={`/invoices/${inv.id}`} className="text-primary hover:underline font-bold">
-                        {inv.invoiceNumber}
-                      </Link>
-                    </td>
-                    <td className="p-4 truncate max-w-[150px]">{getCustomerName(inv.customerId)}</td>
-                    <td className="p-4 truncate max-w-[150px] font-medium text-muted">{inv.title || "Consulting"}</td>
-                    <td className="p-4 text-muted">{formatDate(inv.issueDate)}</td>
-                    <td className="p-4 text-muted">{formatDate(inv.dueDate)}</td>
-                    <td className="p-4 font-extrabold">{formatCurrency(inv.total || 0, inv.currency)}</td>
-                    <td className="p-4">
-                      <span className={`inline-flex px-2.5 py-0.5 border rounded-full text-[10px] font-bold ${statusColors[inv.status] || "bg-gray-100 text-gray-800"}`}>
-                        {inv.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right flex justify-end gap-2">
-                      <Link
-                        href={`/invoices/${inv.id}`}
-                        className="p-1.5 text-primary hover:bg-primary/5 rounded-lg transition-all"
-                        title="View Details"
-                      >
-                        <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      </Link>
-                      {inv.status === "Draft" && (
-                        <Link
-                          href={`/invoices/${inv.id}/edit`}
-                          className="p-1.5 text-primary hover:bg-primary/5 rounded-lg transition-all"
-                          title="Edit Invoice"
-                        >
-                          <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </Link>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                  {filteredInvoices.map((inv) => {
+                    const isPaid = inv.status === "Paid" || (inv.total > 0 && (inv.amountPaid || 0) >= inv.total);
+                    const canEdit = !isPaid && inv.status !== "Void";
+
+                    return (
+                      <tr key={inv.id} className="hover:bg-primary/5 font-semibold text-brandText transition-all">
+                        <td className="p-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedInvoices.includes(inv.id)}
+                            onChange={() => handleSelectInvoice(inv.id)}
+                            className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                          />
+                        </td>
+                        <td className="p-4">
+                          <Link href={`/invoices/${inv.id}`} className="text-primary hover:underline font-bold">
+                            {inv.invoiceNumber}
+                          </Link>
+                        </td>
+                        <td className="p-4 truncate max-w-[150px]">{getCustomerName(inv.customerId)}</td>
+                        <td className="p-4 truncate max-w-[150px] font-medium text-muted">{inv.title || "Consulting"}</td>
+                        <td className="p-4 text-muted">{formatDate(inv.issueDate)}</td>
+                        <td className="p-4 text-muted">{formatDate(inv.dueDate)}</td>
+                        <td className="p-4 font-extrabold">{formatCurrency(inv.total || 0, inv.currency)}</td>
+                        <td className="p-4">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className={`inline-flex px-2.5 py-0.5 border rounded-full text-[10px] font-bold ${statusColors[inv.status] || "bg-gray-100 text-gray-800"}`}>
+                              {inv.status}
+                            </span>
+                            {(inv.viewedAt || inv.isViewed || inv.status === "Viewed") && inv.status !== "Viewed" && (
+                              <span 
+                                className="inline-flex items-center gap-1 px-2 py-0.5 border rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border-purple-200" 
+                                title={inv.viewedAt ? `Viewed by client on ${formatDate(inv.viewedAt)}` : "Viewed by client"}
+                              >
+                                <svg className="w-3 h-3 text-purple-500" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                Viewed
+                              </span>
+                            )}
+                            {inv.latePayment?.enabled && (
+                              <span 
+                                className="inline-flex items-center px-1.5 py-0.5 border rounded text-[9px] font-semibold bg-amber-50 text-amber-800 border-amber-200"
+                                title={`Late Fee Configured: ${inv.latePayment.type === "percent" ? `${inv.latePayment.value}%` : `$${inv.latePayment.value}`}`}
+                              >
+                                ⚡ Late Fee
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Link
+                              href={`/invoices/${inv.id}`}
+                              className="inline-flex items-center justify-center p-2 rounded-xl border border-border bg-white hover:bg-primary/5 hover:border-primary/40 text-primary shadow-2xs transition-all"
+                              title="View Details"
+                            >
+                              <svg className="w-4 h-4 text-primary" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </Link>
+                            {canEdit && (
+                              <Link
+                                href={`/invoices/${inv.id}/edit`}
+                                className="inline-flex items-center justify-center p-2 rounded-xl border border-border bg-white hover:bg-primary/5 hover:border-primary/40 text-primary shadow-2xs transition-all"
+                                title="Edit Invoice"
+                              >
+                                <svg className="w-4 h-4 text-primary" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </Link>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
