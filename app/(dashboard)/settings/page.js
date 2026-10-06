@@ -60,6 +60,8 @@ export default function SettingsPage() {
     taxLabel: "HST",
     taxRate: 13,
     taxEnabledByDefault: true,
+    processingFeeRate: 3,
+    autoUsRule: true,
   });
 
   const [smtp, setSmtp] = useState({
@@ -134,6 +136,8 @@ export default function SettingsPage() {
         ...invoiceConfig,
         currentCounter: parseInt(invoiceConfig.currentCounter, 10) || 1,
         taxRate: parseFloat(invoiceConfig.taxRate) || 0,
+        processingFeeRate: parseFloat(invoiceConfig.processingFeeRate) || 3,
+        autoUsRule: invoiceConfig.autoUsRule !== false,
         defaultDueDays: parseInt(invoiceConfig.defaultDueDays, 10) || 15
       });
       toast.success("Invoice settings saved successfully!", { id: loadId });
@@ -599,6 +603,30 @@ export default function SettingsPage() {
                   />
                   <label htmlFor="taxEnabled" className="ml-2 text-xs font-semibold text-brandText uppercase tracking-wider">
                     Enable Tax by Default
+                  </label>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-2">Payment Processing Fee (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={invoiceConfig.processingFeeRate}
+                    onChange={(e) => setInvoiceConfig({ ...invoiceConfig, processingFeeRate: e.target.value })}
+                    className="w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm text-brandText focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+                    placeholder="3"
+                  />
+                </div>
+                <div className="sm:col-span-2 flex items-center pt-6">
+                  <input
+                    type="checkbox"
+                    id="autoUsRule"
+                    checked={invoiceConfig.autoUsRule !== false}
+                    onChange={(e) => setInvoiceConfig({ ...invoiceConfig, autoUsRule: e.target.checked })}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                  />
+                  <label htmlFor="autoUsRule" className="ml-2 text-xs font-semibold text-brandText uppercase tracking-wider">
+                    Auto-Apply US Client Rule (Waive HST & Apply 3% Processing Fee for USD / US clients)
                   </label>
                 </div>
                 <div className="sm:col-span-3">

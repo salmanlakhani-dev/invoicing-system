@@ -52,6 +52,12 @@ export default function InvoiceBuilder({ invoiceId }) {
   const [discountType, setDiscountType] = useState("percent"); // 'flat' | 'percent'
   const [discountValue, setDiscountValue] = useState(0);
 
+  // Taxes & Processing Fees
+  const [taxEnabled, setTaxEnabled] = useState(true);
+  const [taxRateInput, setTaxRateInput] = useState(13);
+  const [processingFeeEnabled, setProcessingFeeEnabled] = useState(false);
+  const [processingFeeRateInput, setProcessingFeeRateInput] = useState(3);
+
   // Late Payment Module (default OFF)
   const [latePaymentEnabled, setLatePaymentEnabled] = useState(false);
   const [latePaymentType, setLatePaymentType] = useState("percent"); // 'percent' | 'fixed'
@@ -100,6 +106,11 @@ export default function InvoiceBuilder({ invoiceId }) {
         setNotes(configData.defaultNotes || "");
         setTerms(configData.defaultTerms || "");
 
+        const defTaxRate = configData.taxRate !== undefined ? configData.taxRate : 13;
+        setTaxRateInput(defTaxRate);
+        const defProcessingFeeRate = configData.processingFeeRate !== undefined ? configData.processingFeeRate : 3;
+        setProcessingFeeRateInput(defProcessingFeeRate);
+
         // 4. Load Invoice details if in EDIT Mode
         if (invoiceId) {
           const invSnap = await getDoc(doc(db, "invoices", invoiceId));
@@ -119,6 +130,28 @@ export default function InvoiceBuilder({ invoiceId }) {
             setLineItems(invData.lineItems || []);
             setDiscountType(invData.discount?.type || "percent");
             setDiscountValue(invData.discount?.value || 0);
+
+            // Load Tax / HST state
+            if (invData.taxEnabled !== undefined) {
+              setTaxEnabled(!!invData.taxEnabled);
+            } else {
+              setTaxEnabled((invData.taxRate || 0) > 0);
+            }
+            if (invData.taxRate !== undefined) {
+              setTaxRateInput(invData.taxRate);
+            }
+
+            // Load Payment Processing Fee state
+            if (invData.processingFee) {
+              setProcessingFeeEnabled(!!invData.processingFee.enabled);
+              setProcessingFeeRateInput(invData.processingFee.rate !== undefined ? invData.processingFee.rate : defProcessingFeeRate);
+            } else if (invData.processingFeeAmount > 0) {
+              setProcessingFeeEnabled(true);
+              setProcessingFeeRateInput(3);
+            } else {
+              setProcessingFeeEnabled(false);
+            }
+
             setNotes(invData.notes || "");
             setTerms(invData.terms || "");
             setExistingStatus(invData.status || "Draft");
@@ -153,15 +186,48 @@ export default function InvoiceBuilder({ invoiceId }) {
     loadData();
   }, [invoiceId, router]);
 
+  const isUsLocation = (country) => {
+    if (!country) return false;
+    const clean = country.trim().toLowerCase().replace(/[^a-z]/g, "");
+    return clean === "us" || clean === "usa" || clean === "unitedstates" || clean === "unitedstatesofamerica";
+  };
+
+  const isUsClientOrCurrency = (cust, curr) => {
+    if (curr === "USD") return true;
+    if (!cust) return false;
+    return isUsLocation(cust.country) || cust.currencyPreference === "USD";
+  };
+
   // Sync Customer Selection details
   useEffect(() => {
     const cust = customers.find(c => c.id === customerId);
     setSelectedCustomer(cust || null);
     if (cust && !invoiceId) {
-      // Set customer currency preference in NEW mode
-      setCurrency(cust.currencyPreference || "CAD");
+      const isUs = isUsClientOrCurrency(cust, cust.currencyPreference);
+      const targetCurrency = cust.currencyPreference || (isUs ? "USD" : "CAD");
+      setCurrency(targetCurrency);
+
+      // Auto-configure HST & Processing fee rule for US/USD
+      if (config.autoUsRule !== false) {
+        setTaxEnabled(!isUs);
+        setProcessingFeeEnabled(isUs);
+      }
     }
-  }, [customerId, customers, invoiceId]);
+  }, [customerId, customers, invoiceId, config]);
+
+  const handleCurrencyChange = (newCurrency) => {
+    setCurrency(newCurrency);
+    if (!invoiceId && config.autoUsRule !== false) {
+      const isUs = isUsClientOrCurrency(selectedCustomer, newCurrency);
+      setTaxEnabled(!isUs);
+      setProcessingFeeEnabled(isUs);
+      if (isUs) {
+        toast("USD / US Client detected: HST turned off & 3% Payment Processing Fee enabled.", { icon: "🇺🇸" });
+      } else {
+        toast("CAD / Canadian Client detected: HST enabled & Processing Fee waived.", { icon: "🇨🇦" });
+      }
+    }
+  };
 
   // Line Items Actions
   const handleAddLineItem = () => {
@@ -222,9 +288,10 @@ export default function InvoiceBuilder({ invoiceId }) {
     discountType === "percent" 
       ? (subtotal * (parseFloat(discountValue) || 0)) / 100 
       : parseFloat(discountValue) || 0;
+  const discountedSubtotal = Math.max(0, subtotal - discountAmount);
 
   // Calculate tax on items with taxApplicable = true, post discount
-  const taxRatePercent = parseFloat(config.taxRate) || 0;
+  const effectiveTaxRate = taxEnabled ? (parseFloat(taxRateInput !== undefined ? taxRateInput : config.taxRate) || 0) : 0;
   const taxableSubtotal = lineItems
     .filter(item => item.taxApplicable)
     .reduce((sum, item) => {
@@ -234,8 +301,17 @@ export default function InvoiceBuilder({ invoiceId }) {
       return sum + (item.lineTotal - itemDiscount);
     }, 0);
 
-  const taxAmount = (taxableSubtotal * taxRatePercent) / 100;
-  const total = Math.max(0, subtotal - discountAmount + taxAmount);
+  const taxAmount = taxEnabled ? Math.round(((taxableSubtotal * effectiveTaxRate) / 100) * 100) / 100 : 0;
+
+  // Payment Processing Fee (default 3% for US / USD)
+  const effectiveProcessingFeeRate = processingFeeEnabled 
+    ? (parseFloat(processingFeeRateInput !== undefined ? processingFeeRateInput : (config.processingFeeRate || 3)) || 0) 
+    : 0;
+  const processingFeeAmount = processingFeeEnabled 
+    ? Math.round(((discountedSubtotal * effectiveProcessingFeeRate) / 100) * 100) / 100 
+    : 0;
+
+  const total = Math.max(0, Math.round((discountedSubtotal + taxAmount + processingFeeAmount) * 100) / 100);
 
   // Submit Handler
   const handleSave = async (status) => {
@@ -269,10 +345,18 @@ export default function InvoiceBuilder({ invoiceId }) {
           type: discountType,
           value: parseFloat(discountValue) || 0,
         },
-        taxRate: taxRatePercent,
+        taxEnabled: !!taxEnabled,
+        taxRate: effectiveTaxRate,
+        taxLabel: config.taxLabel || "HST",
         subtotal,
         taxAmount,
         discountAmount,
+        processingFee: {
+          enabled: !!processingFeeEnabled,
+          rate: effectiveProcessingFeeRate,
+          amount: processingFeeAmount,
+        },
+        processingFeeAmount,
         total,
         amountPaid: invoiceId ? undefined : 0, // Reset only in new mode
         notes,
@@ -649,12 +733,122 @@ export default function InvoiceBuilder({ invoiceId }) {
               <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1">Invoice Currency</label>
               <select
                 value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
+                onChange={(e) => handleCurrencyChange(e.target.value)}
                 className="w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-brandText focus:border-primary focus:outline-none transition-all font-semibold"
               >
-                <option value="CAD">CAD ($)</option>
-                <option value="USD">USD ($)</option>
+                <option value="CAD">CAD ($) - Canadian Dollar</option>
+                <option value="USD">USD ($) - US Dollar</option>
               </select>
+            </div>
+
+            {/* Smart detection badge */}
+            {isUsClientOrCurrency(selectedCustomer, currency) ? (
+              <div className="p-3 bg-amber-50/90 border border-amber-200/90 rounded-xl text-[11px] text-amber-900 font-semibold space-y-1">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span className="text-sm">🇺🇸</span>
+                  <span>US Client / USD Rule Applied</span>
+                </div>
+                <p className="text-amber-800/90 text-[10px] leading-tight font-medium">
+                  HST is waived (0%) and a {effectiveProcessingFeeRate}% payment processing fee is attached. You can override either toggle below.
+                </p>
+              </div>
+            ) : (
+              <div className="p-3 bg-emerald-50/90 border border-emerald-200/90 rounded-xl text-[11px] text-emerald-900 font-semibold space-y-1">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span className="text-sm">🇨🇦</span>
+                  <span>Canadian / Standard Client</span>
+                </div>
+                <p className="text-emerald-800/90 text-[10px] leading-tight font-medium">
+                  {config.taxLabel || "HST"} ({effectiveTaxRate}%) is enabled and payment processing fee is waived.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Taxes & Processing Fees Card */}
+          <div className="glass-card rounded-2xl p-6 border border-border shadow-sm bg-white/50 space-y-4">
+            <h3 className="text-xs font-bold text-primary uppercase tracking-wider border-b border-border pb-3">Taxes & Processing Fees</h3>
+            
+            {/* 1. HST / Tax Toggle */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-brandText block">{config.taxLabel || "HST"} (Sales Tax)</span>
+                  <span className="text-[10px] text-muted">
+                    {taxEnabled ? `Enabled at ${effectiveTaxRate}%` : "Turned off (Exempt)"}
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={taxEnabled}
+                    onChange={(e) => setTaxEnabled(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+
+              {taxEnabled && (
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <div className="w-28">
+                    <label className="block text-[9px] font-bold uppercase tracking-wider text-muted mb-0.5">Tax Rate (%)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={taxRateInput}
+                      onChange={(e) => setTaxRateInput(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-full rounded-lg border border-border bg-white px-2 py-1 text-xs text-brandText focus:outline-none font-semibold"
+                      placeholder="13"
+                    />
+                  </div>
+                  <div className="text-right pt-3">
+                    <span className="text-xs font-bold text-brandText">+{formatCurrency(taxAmount, currency)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 2. Payment Processing Fee Toggle */}
+            <div className="border-t border-border pt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-brandText block">Payment Processing Fee</span>
+                  <span className="text-[10px] text-muted">
+                    {processingFeeEnabled ? `Attached at ${effectiveProcessingFeeRate}%` : "Turned off (Waived)"}
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={processingFeeEnabled}
+                    onChange={(e) => setProcessingFeeEnabled(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+
+              {processingFeeEnabled && (
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <div className="w-28">
+                    <label className="block text-[9px] font-bold uppercase tracking-wider text-muted mb-0.5">Fee Rate (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={processingFeeRateInput}
+                      onChange={(e) => setProcessingFeeRateInput(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-full rounded-lg border border-border bg-white px-2 py-1 text-xs text-brandText focus:outline-none font-semibold"
+                      placeholder="3"
+                    />
+                  </div>
+                  <div className="text-right pt-3">
+                    <span className="text-xs font-bold text-brandText">+{formatCurrency(processingFeeAmount, currency)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -696,10 +890,18 @@ export default function InvoiceBuilder({ invoiceId }) {
               </div>
 
               {/* Tax values */}
-              {taxRatePercent > 0 && (
+              {taxEnabled && taxAmount > 0 && (
                 <div className="flex justify-between border-b border-border pb-2 text-[11px]">
-                  <span className="text-muted">{config.taxLabel || "Tax"} ({taxRatePercent}%)</span>
-                  <span>{formatCurrency(taxAmount, currency)}</span>
+                  <span className="text-muted">{config.taxLabel || "HST"} ({effectiveTaxRate}%)</span>
+                  <span>+{formatCurrency(taxAmount, currency)}</span>
+                </div>
+              )}
+
+              {/* Processing fee values */}
+              {processingFeeEnabled && processingFeeAmount > 0 && (
+                <div className="flex justify-between border-b border-border pb-2 text-[11px]">
+                  <span className="text-muted">Processing Fee ({effectiveProcessingFeeRate}%)</span>
+                  <span>+{formatCurrency(processingFeeAmount, currency)}</span>
                 </div>
               )}
 
@@ -919,10 +1121,16 @@ export default function InvoiceBuilder({ invoiceId }) {
                       <span>-{formatCurrency(discountAmount, currency)}</span>
                     </div>
                   )}
-                  {taxAmount > 0 && (
+                  {taxEnabled && taxAmount > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted">{config.taxLabel} ({taxRatePercent}%):</span>
+                      <span className="text-muted">{config.taxLabel || "HST"} ({effectiveTaxRate}%):</span>
                       <span>{formatCurrency(taxAmount, currency)}</span>
+                    </div>
+                  )}
+                  {processingFeeEnabled && processingFeeAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted">Processing Fee ({effectiveProcessingFeeRate}%):</span>
+                      <span>+{formatCurrency(processingFeeAmount, currency)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-sm font-black text-primary border-t border-border pt-2">

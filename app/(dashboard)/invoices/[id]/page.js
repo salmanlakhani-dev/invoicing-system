@@ -513,8 +513,14 @@ export default function InvoiceDetailPage() {
                 )}
                 {invoice.taxAmount > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted">Tax ({invoice.taxRate}%):</span>
+                    <span className="text-muted">{invoice.taxLabel || "Tax"} ({invoice.taxRate}%):</span>
                     <span>{formatCurrency(invoice.taxAmount, invoice.currency)}</span>
+                  </div>
+                )}
+                {(invoice.processingFee?.enabled || invoice.processingFeeAmount > 0) && (
+                  <div className="flex justify-between text-xs font-semibold text-brandText">
+                    <span className="text-muted">Payment Processing Fee ({invoice.processingFee?.rate ?? 3}%):</span>
+                    <span>+{formatCurrency(invoice.processingFeeAmount ?? invoice.processingFee?.amount ?? 0, invoice.currency)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm font-black text-primary border-t border-border pt-2">
